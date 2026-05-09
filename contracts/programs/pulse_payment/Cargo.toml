@@ -7,6 +7,16 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 name = "pulse_payment"
 
-[dependencies]
-anchor-lang = "0.31.1"
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+# Hanya untuk swap konstanta USDC mint ke mainnet — JANGAN enable di scope task cross-chain devnet.
+mainnet = []
 
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31.1", features = ["associated_token", "token"] }

@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./connection": "./src/connection.ts",
-    "./transactions": "./src/transactions/index.ts"
+    "./transactions": "./src/transactions/index.ts",
+    "./cctp": "./src/cctp/index.ts",
+    "./cross-chain": "./src/cross-chain/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

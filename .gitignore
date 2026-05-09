@@ -7,3 +7,12 @@ build
 .env
 .env.local
 .DS_Store
+
+# Solana keypairs — never commit
+.keys/
+*-keypair.json
+**/target/
+
+# Anchor build output
+contracts/target/
+contracts/.anchor/

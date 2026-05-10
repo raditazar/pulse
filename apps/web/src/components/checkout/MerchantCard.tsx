@@ -10,7 +10,7 @@ export function MerchantCard({
   emoji?: string;
 }) {
   return (
-    <div className="px-4 pb-11 pt-2 text-center text-white sm:pb-12">
+    <div className="px-4 pb-16 pt-5 text-center text-white sm:pb-[68px] sm:pt-6">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-white/18 text-2xl shadow-[0_12px_24px_-16px_rgba(15,23,42,0.55)] ring-1 ring-white/22 backdrop-blur">
         {emoji}
       </div>
@@ -26,7 +26,7 @@ export function MerchantCard({
           <CheckIcon size={12} strokeWidth={3.4} />
         </span>
       </div>
-      <div className="mt-1 text-[12px] font-medium text-white/72">{address}</div>
+      <div className="mt-2 text-[12px] font-medium text-white/72">{address}</div>
     </div>
   );
 }

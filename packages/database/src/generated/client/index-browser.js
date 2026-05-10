@@ -136,6 +136,18 @@ exports.Prisma.SessionScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.TransactionScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  txSignature: 'txSignature',
+  payerAddress: 'payerAddress',
+  merchantAmount: 'merchantAmount',
+  splitAmount: 'splitAmount',
+  tokenMint: 'tokenMint',
+  chain: 'chain',
+  paidAt: 'paidAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -154,7 +166,8 @@ exports.Prisma.NullsOrder = {
 
 exports.Prisma.ModelName = {
   Merchant: 'Merchant',
-  Session: 'Session'
+  Session: 'Session',
+  Transaction: 'Transaction'
 };
 
 /**

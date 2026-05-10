@@ -19,12 +19,28 @@ model Merchant {
 }
 
 model Session {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  merchantId String?   @map("merchant_id") @db.Uuid
-  amount     Decimal   @db.Decimal
-  status     String?   @default("pending")
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId   String?       @map("merchant_id") @db.Uuid
+  amount       Decimal       @db.Decimal
+  status       String?       @default("pending")
+  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  merchant     Merchant?     @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transactions Transaction[]
 
   @@map("sessions")
+}
+
+model Transaction {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  txSignature    String   @unique @map("tx_signature")
+  payerAddress   String   @map("payer_address")
+  merchantAmount Decimal  @map("merchant_amount") @db.Decimal
+  splitAmount    Decimal  @map("split_amount") @db.Decimal
+  tokenMint      String?  @map("token_mint") // null = native SOL
+  chain          String   @default("solana") // solana, ethereum, polygon, etc.
+  paidAt         DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
+
+  @@map("transactions")
 }

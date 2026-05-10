@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CheckoutSessionResponse } from "@pulse/types";
+import { ClientPageTransition } from "@/components/checkout/ClientPageTransition";
 import { CheckoutShell } from "@/components/checkout/CheckoutShell";
 import {
   CheckoutScreen,
@@ -84,34 +85,38 @@ export default function CheckoutSessionPage({
 
   return (
     <CheckoutShell>
-      {phase === "loading" && <LoadingScreen />}
-      {phase === "checkout" && resolvedSession && (
-        <CheckoutScreen
-          session={resolvedSession}
-          currency={currency}
-          onCurrencyChange={setCurrency}
-          onPay={handlePay}
-          onBack={() => router.push("/")}
-        />
-      )}
-      {phase === "wallet" && <WalletPendingScreen onBack={() => setPhase("checkout")} />}
-      {phase === "processing" && (
-        <ProcessingScreen onBack={() => setPhase("checkout")} />
-      )}
-      {phase === "success" && resolvedSession && (
-        <SuccessScreen
-          session={resolvedSession}
-          txSignature={txSignature}
-          onDone={() => router.push("/")}
-        />
-      )}
-      {phase === "error" && (
-        <ErrorScreen
-          reason={errorReason}
-          onRetry={() => setPhase(resolvedSession ? "checkout" : "loading")}
-          onBack={() => router.push("/")}
-        />
-      )}
+      <ClientPageTransition pageKey={phase}>
+        {phase === "loading" && <LoadingScreen />}
+        {phase === "checkout" && resolvedSession && (
+          <CheckoutScreen
+            session={resolvedSession}
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            onPay={handlePay}
+            onBack={() => router.push("/")}
+          />
+        )}
+        {phase === "wallet" && <WalletPendingScreen onBack={() => setPhase("checkout")} />}
+        {phase === "processing" && (
+          <ProcessingScreen onBack={() => setPhase("checkout")} />
+        )}
+        {phase === "success" && resolvedSession && (
+          <SuccessScreen
+            session={resolvedSession}
+            currency={currency}
+            txSignature={txSignature}
+            onDone={() => router.push("/")}
+          />
+        )}
+        {phase === "error" && (
+          <ErrorScreen
+            reason={errorReason}
+            session={resolvedSession}
+            onRetry={() => setPhase(resolvedSession ? "checkout" : "loading")}
+            onBack={() => router.push("/")}
+          />
+        )}
+      </ClientPageTransition>
     </CheckoutShell>
   );
 }

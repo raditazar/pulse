@@ -5,7 +5,13 @@ const sessions = new Hono()
 
 // ENDPOINT 1: POST /sessions (Buat Session Baru)
 sessions.post("/", async (c) => {
-    const body = await c.req.json()
+    let body
+    try {
+        body = await c.req.json()
+    } catch (e) {
+        return c.json({error: "Invalid or missing JSON payload"}, 400)
+    }
+
     //validation
     const {merchantId, amount} = body
     if (!merchantId || !amount){

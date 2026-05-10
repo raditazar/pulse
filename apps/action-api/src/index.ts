@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import {cors} from "hono/cors"
@@ -9,7 +10,9 @@ const app = new Hono();
 
 app.use("/*", cors())
 
-app.get("/", (c) =>
+const api = app.basePath("/api")
+
+api.get("/", (c) =>
   c.json({
     name: "pulse-action-api",
     status: "ok",
@@ -17,17 +20,20 @@ app.get("/", (c) =>
   }),
 );
 
-app.route("/sessions", sessions)
-app.route("/transactions", transactions)
-app.route("/merchants", merchants)
+api.route("/sessions", sessions)
+api.route("/transactions", transactions)
+api.route("/merchants", merchants)
+
+const PORT = Number(process.env.PORT ?? 8000);
 
 serve(
   {
     fetch: app.fetch,
-    port: 3002,
+    port: PORT,
   },
   (info) => {
     console.log(`Pulse Action API running on http://localhost:${info.port}`);
+    console.log(`Endpoints available at http://localhost:${info.port}/api`);
   },
 );
 

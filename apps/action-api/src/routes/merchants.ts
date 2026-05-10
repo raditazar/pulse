@@ -8,7 +8,7 @@ const merchants = new Hono()
 merchants.get("/:id", async (c) => {
     const id = c.req.param("id")
 
-    const merchant = await prisma.merchant.findUnique({
+    const merchants = await prisma.merchant.findUnique({
         where: {id},
         select: {
             id: true,
@@ -19,11 +19,11 @@ merchants.get("/:id", async (c) => {
         }
     })
 
-    if(!merchant){
+    if(!merchants){
         return c.json({error: "Merchant not found"}, 404)
     }
 
-    return c.json(merchant)
+    return c.json(merchants)
 })
 
 // ENDPOINT 2

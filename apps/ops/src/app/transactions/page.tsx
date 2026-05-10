@@ -29,7 +29,7 @@ export default function TransactionsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Transactions"
-        subtitle="On-chain payment history from all stickers."
+        subtitle="On-chain payment history from the cashier NFC."
       />
 
       <div className="grid grid-cols-3 gap-3">

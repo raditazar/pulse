@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { FooterCard } from "@/components/dashboard/FooterCard";
 import { BoltSolidIcon, PulseSignalIcon, PulseStickerIcon } from "@/components/dashboard/icons";
-import { DatePill, PageHeader } from "@/components/dashboard/PageHeader";
-import { CurrencyToggle, Panel, PanelHeading } from "@/components/dashboard/primitives";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { CurrencyToggle, Panel, PanelHeading, SelectDropdown } from "@/components/dashboard/primitives";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { TxTable } from "@/components/dashboard/TxTable";
 import { VolumeChart } from "@/components/dashboard/VolumeChart";
@@ -25,20 +25,13 @@ export default function OverviewPage() {
         trailing={
           <div className="flex flex-wrap items-center gap-2">
             <CurrencyToggle currency={currency} onChange={setCurrency} />
-            <DatePill>
-              <select
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                className="appearance-none bg-transparent font-semibold text-text outline-none"
-                aria-label="Select reporting date"
-              >
-                {reportingDates.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </DatePill>
+            <SelectDropdown
+              value={date}
+              onChange={setDate}
+              ariaLabel="Select reporting date"
+              options={reportingDates.map((item) => ({ value: item, label: item }))}
+              className="min-w-[150px]"
+            />
           </div>
         }
       />
@@ -75,9 +68,9 @@ export default function OverviewPage() {
             tone="pulse"
           />
           <FooterCard
-            label="Active Stickers"
-            value="3 / 4"
-            hint="1 awaiting assignment"
+            label="Cashier NFC"
+            value="1 / 1"
+            hint="Ready at counter"
             hintTone="muted"
             icon={<PulseStickerIcon size={18} />}
             tone="violet"
@@ -88,20 +81,13 @@ export default function OverviewPage() {
       <Panel>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PanelHeading title="Latest Transactions" sub="Last 5 payments today." />
-          <DatePill>
-            <select
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="appearance-none bg-transparent font-semibold text-text outline-none"
-              aria-label="Select transactions date"
-            >
-              {reportingDates.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </DatePill>
+          <SelectDropdown
+            value={date}
+            onChange={setDate}
+            ariaLabel="Select transactions date"
+            options={reportingDates.map((item) => ({ value: item, label: item }))}
+            className="min-w-[150px]"
+          />
         </div>
         <TxTable rows={transactions} currency={currency} />
       </Panel>

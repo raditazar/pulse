@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { DisplayCurrency, Transaction } from "@/lib/mock-data";
 import { ChevronDown, SearchIcon } from "./icons";
-import { ChipVariant } from "./primitives";
+import { ChipVariant, SelectDropdown } from "./primitives";
 
 const statusVariant: Record<Transaction["status"], "success" | "error" | "pending"> = {
   success: "success",
@@ -54,20 +54,17 @@ export function TxFilters({
 
       {filtersOpen && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.4fr]">
-          <label className="flex items-center justify-between gap-1.5 rounded-[8px] border border-border bg-bg-soft px-3 py-2 text-[11px] text-muted">
-            <select
-              value={status}
-              onChange={(event) => onStatusChange(event.target.value as TxStatusFilter)}
-              className="min-w-0 flex-1 appearance-none bg-transparent font-semibold text-text outline-none"
-              aria-label="Filter transactions by status"
-            >
-              <option value="all">All</option>
-              <option value="success">Successful</option>
-              <option value="failed">Failed</option>
-              <option value="pending">Pending</option>
-            </select>
-            <ChevronDown size={11} />
-          </label>
+          <SelectDropdown<TxStatusFilter>
+            value={status}
+            onChange={onStatusChange}
+            ariaLabel="Filter transactions by status"
+            options={[
+              { value: "all", label: "All" },
+              { value: "success", label: "Successful" },
+              { value: "failed", label: "Failed" },
+              { value: "pending", label: "Pending" },
+            ]}
+          />
           <label className="flex items-center gap-1.5 rounded-[8px] border border-border bg-bg-soft px-3 py-2 text-[11px] text-muted">
             <SearchIcon size={11} />
             <input

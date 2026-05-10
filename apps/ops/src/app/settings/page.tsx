@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "@/components/dashboard/icons";
 import { MerchantReceivingWalletField } from "@/components/dashboard/MerchantWalletField";
 import { MerchantWalletPanel } from "@/components/dashboard/MerchantWalletPanel";
 import { PageHeader } from "@/components/dashboard/PageHeader";
@@ -10,6 +9,7 @@ import {
   FieldLabel,
   Panel,
   PanelHeading,
+  SelectDropdown,
 } from "@/components/dashboard/primitives";
 import { merchant } from "@/lib/mock-data";
 
@@ -58,8 +58,8 @@ export default function SettingsPage() {
         subtitle="Manage merchant information and the receiving wallet."
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <Panel>
           <PanelHeading title="Merchant Profile" sub="This information is shown to customers during checkout." />
 
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
@@ -75,7 +75,22 @@ export default function SettingsPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    merchant.emoji
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 28 28"
+                      fill="none"
+                      aria-hidden="true"
+                      className="text-purple"
+                    >
+                      <circle cx="14" cy="9.5" r="4.5" fill="currentColor" opacity="0.9" />
+                      <path
+                        d="M5.5 24c.9-4.3 4-7 8.5-7s7.6 2.7 8.5 7"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   )}
                 </div>
                 <label className="focus-ring inline-flex cursor-pointer items-center justify-center rounded-[10px] border border-border bg-surface px-3 py-2 text-[12px] font-bold text-text hover:text-purple">
@@ -135,26 +150,15 @@ export default function SettingsPage() {
 
             <div>
               <FieldLabel>Time Zone</FieldLabel>
-              <label className="flex items-center justify-between rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text focus-within:border-purple">
-                <select
-                  value={timezone}
-                  onChange={(event) => {
-                    setTimezone(event.target.value);
-                    setSaveStatus("Unsaved changes.");
-                  }}
-                  className="min-w-0 flex-1 bg-transparent outline-none"
-                  aria-label="Merchant time zone"
-                >
-                  {timezones.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-muted">
-                  <ChevronDown size={12} />
-                </span>
-              </label>
+              <SelectDropdown
+                value={timezone}
+                onChange={(nextTimezone) => {
+                  setTimezone(nextTimezone);
+                  setSaveStatus("Unsaved changes.");
+                }}
+                ariaLabel="Merchant time zone"
+                options={timezones.map((item) => ({ value: item, label: item }))}
+              />
             </div>
           </div>
 
@@ -166,19 +170,21 @@ export default function SettingsPage() {
           </div>
         </Panel>
 
-        <Panel className="bg-bg-soft">
-          <PanelHeading title="Wallet Access" sub="Email login and external Solana wallets are supported." />
-          <MerchantWalletPanel />
-        </Panel>
+        <div className="flex h-full flex-col gap-5">
+          <Panel className="bg-bg-soft">
+            <PanelHeading title="Wallet Access" sub="Email login and external Solana wallets are supported." />
+            <MerchantWalletPanel />
+          </Panel>
 
-        <Panel className="bg-bg-soft">
-          <PanelHeading title="Security Tips" sub="Pulse never holds merchant funds." />
-          <ul className="flex flex-col gap-2 text-[12px] leading-relaxed text-muted">
-            <li>• Make sure the receiving wallet is owned by the merchant entity.</li>
-            <li>• Keep the time zone aligned with the outlet location for accurate reports.</li>
-            <li>• Every change is recorded in the on-chain audit log.</li>
-          </ul>
-        </Panel>
+          <Panel className="flex-1 bg-bg-soft">
+            <PanelHeading title="Security Tips" sub="Pulse never holds merchant funds." />
+            <ul className="flex flex-col gap-2 text-[12px] leading-relaxed text-muted">
+              <li>• Make sure the receiving wallet is owned by the merchant entity.</li>
+              <li>• Keep the time zone aligned with the outlet location for accurate reports.</li>
+              <li>• Every change is recorded in the on-chain audit log.</li>
+            </ul>
+          </Panel>
+        </div>
       </div>
     </div>
   );

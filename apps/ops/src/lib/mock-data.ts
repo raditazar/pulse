@@ -63,40 +63,14 @@ export type NfcTile = {
   lastTapTone: "success" | "warn" | "muted";
 };
 
-export const nfcTiles: NfcTile[] = [
-  {
-    id: "A1B2C3",
-    name: "Table 1 (NFC #A1B2C3)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Active session",
-    lastTapTone: "success",
-  },
-  {
-    id: "D4E5F6",
-    name: "Table 2 (NFC #D4E5F6)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Active session",
-    lastTapTone: "success",
-  },
-  {
-    id: "G7H8I9",
-    name: "Table 3 (NFC #G7H8I9)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Last tap: 10:21",
-    lastTapTone: "warn",
-  },
-  {
-    id: "J0K1L2",
-    name: "Table 4 (NFC #J0K1L2)",
-    merchant: "Kopi Kita",
-    status: "inactive",
-    lastTap: "Unused",
-    lastTapTone: "muted",
-  },
-];
+export const cashierNfc: NfcTile = {
+  id: "A1B2C3",
+  name: "Main Cashier NFC",
+  merchant: "Kopi Kita",
+  status: "active",
+  lastTap: "Active session",
+  lastTapTone: "success",
+};
 
 export type TxStatus = "success" | "failed" | "pending";
 
@@ -122,5 +96,4 @@ export const createPaymentDefaults = {
     SOL: "0.0209 SOL",
   },
   description: "Cappuccino Large",
-  selectedSticker: "Table 3 (NFC #A1B2C3)",
 };

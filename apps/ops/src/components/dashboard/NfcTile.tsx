@@ -69,22 +69,28 @@ export function InteractiveNfcTile({
           />
           {tile.lastTap}
         </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-text hover:text-purple"
-          >
-            {inactive ? "Activate" : "Disable"}
-          </button>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-muted hover:text-text"
-          >
-            Copy ID
-          </button>
-        </div>
+        {(onToggle || onCopy) && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {onToggle && (
+              <button
+                type="button"
+                onClick={onToggle}
+                className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-text hover:text-purple"
+              >
+                {inactive ? "Activate" : "Disable"}
+              </button>
+            )}
+            {onCopy && (
+              <button
+                type="button"
+                onClick={onCopy}
+                className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-muted hover:text-text"
+              >
+                Copy ID
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

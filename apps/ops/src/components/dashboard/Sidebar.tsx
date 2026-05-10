@@ -15,7 +15,7 @@ import { MerchantWalletPanel } from "./MerchantWalletPanel";
 const NAV = [
   { href: "/", label: "Overview", icon: HomeIcon },
   { href: "/create-payment", label: "Create Payment", icon: PlusCircleIcon },
-  { href: "/nfc-stickers", label: "NFC Stickers", icon: NfcIcon },
+  { href: "/nfc-stickers", label: "Cashier NFC", icon: NfcIcon },
   { href: "/transactions", label: "Transactions", icon: ActivityIcon },
   { href: "/settings", label: "Merchant Settings", icon: SettingsIcon },
 ];
@@ -44,7 +44,7 @@ export function Sidebar({
         PULSE
       </div>
 
-      {NAV.map((item) => {
+      {NAV.map((item, index) => {
         const Active = item.icon;
         const isActive = pathname === item.href;
         return (
@@ -52,11 +52,12 @@ export function Sidebar({
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className={`focus-ring flex items-center gap-2 rounded-[8px] px-3 py-2.5 text-[12px] font-semibold transition-colors ${
+            className={`nav-item-in focus-ring flex items-center gap-2 rounded-[8px] px-3 py-2.5 text-[12px] font-semibold transition duration-200 hover:translate-x-0.5 ${
               isActive
                 ? "bg-surface text-purple panel-shadow"
                 : "text-muted hover:text-text"
             }`}
+            style={{ animationDelay: `${index * 35}ms` }}
           >
             <Active size={14} />
             {item.label}

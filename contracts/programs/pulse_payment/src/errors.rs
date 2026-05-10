@@ -1,5 +1,50 @@
 use anchor_lang::prelude::*;
 
+#[error_code]
+pub enum CoreError {
+    #[msg("Total split basis points must equal 10000")]
+    InvalidSplitTotal = 6000,
+
+    #[msg("Too many split beneficiaries")]
+    TooManyBeneficiaries = 6001,
+
+    #[msg("Duplicate beneficiary wallet detected")]
+    DuplicateBeneficiary = 6002,
+
+    #[msg("Merchant is inactive")]
+    MerchantInactive = 6003,
+
+    #[msg("Payment amount must be greater than zero")]
+    InvalidSessionAmount = 6004,
+
+    #[msg("Session expiry must be in the future")]
+    InvalidSessionExpiry = 6005,
+
+    #[msg("Metadata URI is too long")]
+    MetadataUriTooLong = 6006,
+
+    #[msg("Session is not pending")]
+    SessionNotPending = 6007,
+
+    #[msg("Session already expired")]
+    SessionExpired = 6008,
+
+    #[msg("Unauthorized authority")]
+    Unauthorized = 6009,
+
+    #[msg("Beneficiary ATA count does not match merchant split config")]
+    InvalidBeneficiaryAccountCount = 6010,
+
+    #[msg("Beneficiary ATA is invalid or does not match expected owner/mint")]
+    InvalidBeneficiaryAta = 6011,
+
+    #[msg("Split math overflowed")]
+    SplitMathOverflow = 6012,
+
+    #[msg("Source token balance is insufficient")]
+    SourceBalanceInsufficient = 6013,
+}
+
 /// Pulse cross-chain error codes — range 6100-6199 (per task division dengan core-program owner).
 #[error_code]
 pub enum CrossChainError {

@@ -20,7 +20,7 @@
  * export EVM_PRIVATE_KEY=0x...
  * export EVM_RPC_URL=https://sepolia.base.org
  * export SOLANA_RPC_URL=https://api.devnet.solana.com
- * export PULSE_PROGRAM_ID=Gh2NP3fBQfdARCkTerXx8vzgEY1yFhH5ApM8v79rj8d2
+ * export PULSE_PROGRAM_ID=2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF
  *
  * # 3. Run
  * pnpm tsx contracts/tests/cctp-e2e.ts

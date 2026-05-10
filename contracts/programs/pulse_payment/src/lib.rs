@@ -1,9 +1,12 @@
 //! Pulse Payment program — split payment Solana NFC tap-to-pay.
 //!
-//! Modul cross-chain (CCTP V2 + LayerZero V2 OApp) dipisah ke `cross_chain/` dan
-//! `instructions/cross_chain/`. Core program (Merchant init, payment session lifecycle,
-//! `execute_split_payment`) dikerjakan oleh teman di workspace berbeda — di repo ini
-//! kita pakai mock di `state/mock.rs` supaya CCTP integration bisa di-test independen.
+//! Modul cross-chain (CCTP V2) di-handle di sini. LayerZero V2 OApp (Phase 2) dipisah
+//! ke crate `pulse_lz_oapp/` di workspace yang sama supaya dependency `oapp` git tidak
+//! menambah build time / risk untuk Phase 1.
+//!
+//! Core program (Merchant init, payment session lifecycle, `execute_split_payment`)
+//! dikerjakan oleh teman di workspace berbeda — di repo ini kita pakai mock di
+//! `state/mock.rs` supaya CCTP integration bisa di-test independen.
 
 use anchor_lang::prelude::*;
 

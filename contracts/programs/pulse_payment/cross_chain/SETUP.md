@@ -190,10 +190,11 @@ ls target/deploy/pulse_payment.so   # harus ada, ~200-300 KB
 | Program | Address |
 |---|---|
 | `pulse_payment` (kita) | `Gh2NP3fBQfdARCkTerXx8vzgEY1yFhH5ApM8v79rj8d2` |
+| `pulse_lz_oapp` (Phase 2) | `AUdFnYGNTsKRvdCNyRRZcUVo7h8x2nf74e1RMYSF1Nm8` |
 | CCTP V2 `message_transmitter_v2` | `CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC` |
 | CCTP V2 `token_messenger_minter_v2` | `CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe` |
 | USDC mint (devnet) | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
-| LayerZero V2 Endpoint (Solana Devnet) | _TBD — fetch saat Phase 2 dari LZ deployments file_ |
+| LayerZero V2 Endpoint (Solana Devnet) | _TBD — fetch dari https://docs.layerzero.network/v2/deployments/chains/solana-testnet, plug-in ke `packages/solana/src/lz/addresses.ts`_ |
 
 CCTP V2 Domain IDs:
 - Solana Devnet = `5`

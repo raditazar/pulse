@@ -15,7 +15,7 @@ function shortAddress(address: string) {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
-function useBuyerWalletConnection(onPay?: () => void) {
+export function useBuyerWalletConnection(onPay?: (address?: string) => void) {
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin();
   const { connectWallet } = useConnectWallet();
@@ -47,7 +47,7 @@ function useBuyerWalletConnection(onPay?: () => void) {
       });
       return;
     }
-    onPay?.();
+    onPay?.(solanaWallet?.address ?? ethereumWallet?.address);
   };
 
   return {
@@ -107,7 +107,11 @@ export function BuyerPaymentAction({ onPay }: { onPay?: () => void }) {
   return <ConnectedBuyerPaymentAction onPay={onPay} />;
 }
 
-function ConnectedBuyerPaymentAction({ onPay }: { onPay?: () => void }) {
+function ConnectedBuyerPaymentAction({
+  onPay,
+}: {
+  onPay?: (address?: string) => void;
+}) {
   const { ready, authenticated, hasPaymentWallet, handleWalletAction } = useBuyerWalletConnection(onPay);
 
   return (

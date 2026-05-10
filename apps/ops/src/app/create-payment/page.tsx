@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { createMerchant, createSession } from "@/lib/api";
 import { ChevronDown } from "@/components/dashboard/icons";
+import { useMerchantWalletState } from "@/components/dashboard/MerchantWalletPanel";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   ConfirmDialog,
@@ -14,23 +16,60 @@ import {
 import { createPaymentDefaults, nfcTiles, type DisplayCurrency } from "@/lib/mock-data";
 
 export default function CreatePaymentPage() {
+  const { wallet } = useMerchantWalletState();
   const [currency, setCurrency] = useState<DisplayCurrency>("USD");
   const [amounts, setAmounts] = useState(createPaymentDefaults.amount);
   const [description, setDescription] = useState(createPaymentDefaults.description);
   const [selectedSticker, setSelectedSticker] = useState(createPaymentDefaults.selectedSticker);
   const [createdSession, setCreatedSession] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const d = createPaymentDefaults;
 
-  const handleCreateSession = () => {
-    const sessionId = `pulse-${Date.now().toString(36)}`;
-    setCreatedSession(sessionId);
-    setConfirmOpen(false);
+  const normalizeAmount = () => {
+    const raw = amounts[currency].replace(/[^0-9.]/g, "");
+    const parsed = Number(raw || "0");
+    return parsed.toFixed(2);
+  };
+
+  const handleCreateSession = async () => {
+    if (!wallet?.address) {
+      setStatusMessage("Connect a merchant Solana wallet first.");
+      setConfirmOpen(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    try {
+      const createdMerchant = await createMerchant({
+        authority: wallet.address,
+        primaryBeneficiary: wallet.address,
+        splitBasisPoints: 1000,
+        name: "Pulse Merchant",
+        metadataUri: `pulse://merchant/${wallet.address}`,
+        splitBeneficiaries: [],
+      });
+      const merchant = createdMerchant.merchant;
+
+      const created = await createSession({
+        merchantPda: merchant.merchantPda,
+        amountUsdc: normalizeAmount(),
+      });
+      setCreatedSession(created.checkoutUrl);
+      setStatusMessage(`Session created for ${created.session.amountUsdc} USDC`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Failed to create session");
+    } finally {
+      setIsSubmitting(false);
+      setConfirmOpen(false);
+    }
   };
 
   const handleCopySession = async () => {
     if (!createdSession) return;
-    await navigator.clipboard?.writeText(`${window.location.origin}/pay/${createdSession}`);
+    await navigator.clipboard?.writeText(createdSession);
   };
 
   return (
@@ -88,7 +127,7 @@ export default function CreatePaymentPage() {
               </label>
             </div>
 
-            <CtaButton className="mt-2" onClick={() => setConfirmOpen(true)}>
+            <CtaButton className="mt-2" onClick={() => setConfirmOpen(true)} disabled={isSubmitting}>
               Create Payment Session
             </CtaButton>
 
@@ -96,8 +135,7 @@ export default function CreatePaymentPage() {
               <div className="rounded-control border border-border bg-bg-soft p-3 text-[12px] text-muted">
                 <div className="font-bold text-text">Session ready</div>
                 <div className="mt-1 num break-all text-[11px]">
-                  /pay/{createdSession} · {amounts[currency]} · {description || d.description} ·{" "}
-                  {selectedSticker}
+                  {createdSession} · {normalizeAmount()} USDC · {description || d.description} · {selectedSticker}
                 </div>
                 <button
                   type="button"
@@ -106,6 +144,12 @@ export default function CreatePaymentPage() {
                 >
                   Copy Session Link
                 </button>
+              </div>
+            )}
+
+            {statusMessage && (
+              <div className="rounded-control border border-border bg-bg-soft p-3 text-[12px] text-muted">
+                {statusMessage}
               </div>
             )}
           </div>
@@ -126,7 +170,7 @@ export default function CreatePaymentPage() {
         open={confirmOpen}
         title="Create this payment session?"
         description="The selected NFC sticker will open this payment session for the customer."
-        confirmLabel="Create Session"
+        confirmLabel={isSubmitting ? "Creating..." : "Create Session"}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleCreateSession}
       >

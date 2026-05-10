@@ -7,23 +7,33 @@ datasource db {
 }
 
 model Merchant {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  walletAddress String    @map("wallet_address")
-  splitAddress  String?   @map("split_address")
-  splitPercent  Int       @default(10) @map("split_percent") // % ke platform/lokasi, sisanya ke merchant
-  sessions      Session[]
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantPda        String        @unique @map("merchant_pda")
+  authority          String
+  primaryBeneficiary String        @map("primary_beneficiary")
+  splitBasisPoints   Int           @default(1000) @map("split_basis_points")
+  splitBeneficiaries Json          @default("[]") @map("split_beneficiaries")
+  metadataUri        String?       @map("metadata_uri")
+  name               String?
+  isActive           Boolean       @default(true) @map("is_active")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions           Session[]
 
   @@map("merchants")
 }
 
 model Session {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  merchantId   String?       @map("merchant_id") @db.Uuid
-  amount       Decimal       @db.Decimal
-  status       String?       @default("pending")
-  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
-  merchant     Merchant?     @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionPda  String        @unique @map("session_pda")
+  sessionSeed String        @unique @map("session_seed")
+  merchantId  String?       @map("merchant_id") @db.Uuid
+  amountUsdc  Decimal       @map("amount_usdc") @db.Decimal(18, 6)
+  expiresAt   DateTime      @map("expires_at") @db.Timestamptz(6)
+  status      String        @default("pending")
+  paidBy      String?       @map("paid_by")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  merchant    Merchant?     @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   transactions Transaction[]
 
   @@map("sessions")
@@ -35,10 +45,10 @@ model Transaction {
   session        Session  @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   txSignature    String   @unique @map("tx_signature")
   payerAddress   String   @map("payer_address")
-  merchantAmount Decimal  @map("merchant_amount") @db.Decimal
-  splitAmount    Decimal  @map("split_amount") @db.Decimal
-  tokenMint      String?  @map("token_mint")    // null = native SOL
-  chain          String   @default("solana")     // solana, ethereum, polygon, etc.
+  tokenMint      String?  @map("token_mint")
+  chain          String   @default("solana")
+  amountUsdc     Decimal? @map("amount_usdc") @db.Decimal(18, 6)
+  splitBreakdown Json?    @map("split_breakdown")
   paidAt         DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
 
   @@map("transactions")

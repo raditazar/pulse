@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 // Re-export types agar bisa dipakai di apps lain
 export type { Merchant, Session, Transaction } from "@prisma/client";
-export { PrismaClient } from "@prisma/client";
+export { Prisma, PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

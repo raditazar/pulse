@@ -1,56 +1,132 @@
-import {Hono} from "hono"
-import {prisma} from "@pulse/database"
-import { transactions } from "./transactions"
+import { Hono } from "hono";
+import { z } from "zod";
 
-const merchants = new Hono()
+import { prisma } from "@pulse/database";
+import {
+  buildCreateMerchantData,
+  buildMerchantResponse,
+  buildCheckoutResponse,
+  mapMerchantRecord,
+} from "../services/pulse";
 
-// ENDPOINT 1: GET /merchant/:id
+const merchants = new Hono();
+
+const createMerchantSchema = z.object({
+  authority: z.string().min(32),
+  primaryBeneficiary: z.string().min(32),
+  splitBasisPoints: z.number().int().min(0).max(10_000).default(1000),
+  metadataUri: z.string().optional(),
+  name: z.string().optional(),
+  splitBeneficiaries: z
+    .array(
+      z.object({
+        wallet: z.string().min(32),
+        bps: z.number().int().min(0).max(10_000),
+        label: z.string().min(1).max(32),
+      }),
+    )
+    .max(4)
+    .optional(),
+});
+
+merchants.post("/", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = createMerchantSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400);
+  }
+
+  const createData = buildCreateMerchantData(parsed.data);
+  const merchant = await prisma.merchant.upsert({
+    where: { merchantPda: createData.merchantPda },
+    update: createData,
+    create: createData,
+  });
+
+  return c.json(buildMerchantResponse(merchant), 201);
+});
+
 merchants.get("/:id", async (c) => {
-    const id = c.req.param("id")
+  const id = c.req.param("id");
 
-    const merchants = await prisma.merchant.findUnique({
-        where: {id},
-        select: {
-            id: true,
-            name: true,
-            walletAddress: true,
-            splitAddress: true,
-            splitPercent: true,
-        }
-    })
+  const merchant = await prisma.merchant.findFirst({
+    where: {
+      OR: [{ id }, { merchantPda: id }],
+    },
+  });
 
-    if(!merchants){
-        return c.json({error: "Merchant not found"}, 404)
-    }
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
 
-    return c.json(merchants)
-})
+  return c.json({ merchant: mapMerchantRecord(merchant) });
+});
 
-// ENDPOINT 2
+merchants.get("/:id/sessions", async (c) => {
+  const id = c.req.param("id");
+  const merchant = await prisma.merchant.findFirst({
+    where: {
+      OR: [{ id }, { merchantPda: id }],
+    },
+    include: {
+      sessions: {
+        orderBy: { createdAt: "desc" },
+        take: Number(c.req.query("limit") ?? "20"),
+      },
+    },
+  });
+
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
+
+  return c.json({
+    merchant: mapMerchantRecord(merchant),
+    sessions: merchant.sessions.map((session) => buildCheckoutResponse(session, merchant).session),
+  });
+});
+
 merchants.get("/:id/transactions", async (c) => {
-    const id = c.req.param("id")
-    const limit = Number(c.req.query("limit")?? "20")
-    const offset = Number(c.req.query("offset") ?? "0")
+  const id = c.req.param("id");
+  const limit = Number(c.req.query("limit") ?? "20");
+  const merchant = await prisma.merchant.findFirst({
+    where: {
+      OR: [{ id }, { merchantPda: id }],
+    },
+  });
 
-    const txs = await prisma.transaction.findMany({
-        where: {
-            session: {
-                merchantId: id,
-            },
-        },
-        include: {
-            session: {
-                select: {
-                    amount: true,
-                    createdAt: true
-                }
-            }
-        },
-        orderBy: {paidAt: "desc"},
-        take: limit,
-        skip: offset
-    })
-    return c.json({transactions: txs, limit, offset})
-})
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
 
-export {merchants}
+  const txs = await prisma.transaction.findMany({
+    where: {
+      session: {
+        merchantId: merchant.id,
+      },
+    },
+    include: {
+      session: true,
+    },
+    orderBy: { paidAt: "desc" },
+    take: limit,
+  });
+
+  return c.json({
+    merchant: mapMerchantRecord(merchant),
+    transactions: txs.map((tx) => ({
+      id: tx.id,
+      txSignature: tx.txSignature,
+      payerAddress: tx.payerAddress,
+      chain: tx.chain,
+      tokenMint: tx.tokenMint,
+      amountUsdc: tx.amountUsdc?.toString() ?? null,
+      splitBreakdown: tx.splitBreakdown,
+      paidAt: tx.paidAt.toISOString(),
+      sessionPda: tx.session.sessionPda,
+      sessionId: tx.session.id,
+    })),
+  });
+});
+
+export { merchants };

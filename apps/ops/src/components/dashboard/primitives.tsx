@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { SegmentedToggle } from "@pulse/ui";
 import { currencies, type DisplayCurrency } from "@/lib/mock-data";
 
 export function Panel({
@@ -74,17 +75,71 @@ export function CtaButton({
   );
 }
 
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  children,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  children?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-text/35 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-[420px] rounded-card border border-border bg-surface p-4 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.75)]">
+        <div className="text-[16px] font-extrabold text-text">{title}</div>
+        {description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>}
+        {children && <div className="mt-4">{children}</div>}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="focus-ring rounded-[10px] border border-border bg-bg-soft px-4 py-2.5 text-[12px] font-bold text-muted hover:text-text"
+          >
+            {cancelLabel}
+          </button>
+          <CtaButton className="py-2.5 text-[12px]" onClick={onConfirm}>
+            {confirmLabel}
+          </CtaButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <div className="mb-1.5 text-[11px] font-semibold text-muted">{children}</div>;
 }
 
-export function ReadonlyInput({ children, mono = false, trailing }: { children: ReactNode; mono?: boolean; trailing?: ReactNode }) {
+export function ReadonlyInput({
+  children,
+  mono = false,
+  trailing,
+  contentClassName = "truncate",
+}: {
+  children: ReactNode;
+  mono?: boolean;
+  trailing?: ReactNode;
+  contentClassName?: string;
+}) {
   return (
     <div
-      className={`flex items-center justify-between rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text ${mono ? "num text-[11px]" : ""}`}
+      className={`flex min-w-0 items-center justify-between gap-2 rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text ${mono ? "num text-[11px]" : ""}`}
     >
-      <span>{children}</span>
-      {trailing}
+      <span className={`min-w-0 flex-1 ${contentClassName}`}>{children}</span>
+      {trailing && <span className="shrink-0">{trailing}</span>}
     </div>
   );
 }
@@ -97,23 +152,11 @@ export function CurrencyToggle({
   onChange: (currency: DisplayCurrency) => void;
 }) {
   return (
-    <div className="inline-grid grid-cols-2 rounded-[10px] border border-border bg-bg-soft p-1">
-      {currencies.map((item) => {
-        const active = item === currency;
-        return (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            className={`focus-ring rounded-[8px] px-3 py-1.5 text-[11px] font-bold transition-colors ${
-              active ? "bg-surface text-purple panel-shadow" : "text-muted hover:text-text"
-            }`}
-            aria-pressed={active}
-          >
-            {item}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedToggle
+      options={currencies.map((item) => ({ value: item }))}
+      value={currency}
+      onChange={onChange}
+      size="sm"
+    />
   );
 }

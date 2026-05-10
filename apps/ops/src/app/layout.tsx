@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { MerchantPrivyProvider } from "@/components/dashboard/PrivyProvider";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -35,7 +36,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} ${mono.variable}`}>
       <body className="min-h-dvh bg-bg text-text font-sans antialiased">
-        <DashboardShell>{children}</DashboardShell>
+        <MerchantPrivyProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </MerchantPrivyProvider>
       </body>
     </html>
   );

@@ -122,3 +122,23 @@ export function ShieldIcon(p: IconProps) {
     </svg>
   );
 }
+export function PulseSignalIcon(p: IconProps) {
+  return (
+    <svg {...stroke({ ...p, strokeWidth: 2.3 })}>
+      <path d="M6.5 12a5.5 5.5 0 0 1 0-7.8" />
+      <path d="M10 14.5a8.5 8.5 0 0 1 0-12" />
+      <path d="M13.5 17a11.5 11.5 0 0 1 0-16" />
+      <circle cx="18" cy="12" r="2.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+export function PulseStickerIcon(p: IconProps) {
+  return (
+    <svg {...stroke({ ...p, strokeWidth: 2.2 })}>
+      <path d="M7 4h8l4 4v12H7z" />
+      <path d="M15 4v5h5" />
+      <path d="M10 13h6" />
+      <path d="M10 17h4" />
+    </svg>
+  );
+}

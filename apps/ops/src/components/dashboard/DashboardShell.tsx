@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { PulseLogo } from "@pulse/ui";
 import { CloseIcon, MenuIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
 
@@ -10,7 +11,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh w-full">
       {/* desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 border-r border-border lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-[252px] shrink-0 border-r border-border lg:flex">
         <Sidebar />
       </aside>
 
@@ -18,12 +19,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         {/* mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-bg/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center gap-2 text-[14px] font-extrabold tracking-[0.06em] text-text">
-            <span
-              className="grid h-6 w-6 place-items-center rounded-md text-[12px] font-extrabold text-white"
-              style={{ background: "linear-gradient(135deg, #9945FF, #C77DFF)" }}
-            >
-              P
-            </span>
+            <PulseLogo size={26} />
             PULSE
           </div>
           <button
@@ -47,7 +43,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onClick={() => setDrawerOpen(false)}
             aria-hidden
           />
-          <div className="absolute inset-y-0 left-0 flex w-[260px] max-w-[80vw] flex-col border-r border-border bg-bg">
+          <div className="absolute inset-y-0 left-0 flex w-[288px] max-w-[86vw] flex-col border-r border-border bg-bg">
             <div className="flex items-center justify-end px-2 pt-2">
               <button
                 type="button"

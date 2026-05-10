@@ -29,24 +29,26 @@ export const statsByCurrency = {
 } satisfies Record<DisplayCurrency, { label: string; value: string; delta: string; deltaUp: boolean; accent?: "success" }[]>;
 
 export const volumeChart = {
-  yTicks: {
-    USD: ["$95", "$63", "$31"],
-    SOL: ["0.63", "0.42", "0.21"],
-  },
-  // values in chart-y coords (already mapped, lower y = higher value)
   points: [
-    { day: "May 5", x: 40, y: 80 },
-    { day: "May 6", x: 110, y: 60 },
-    { day: "May 7", x: 180, y: 72 },
-    { day: "May 8", x: 250, y: 40 },
-    { day: "May 9", x: 320, y: 52 },
-    { day: "May 10", x: 390, y: 30 },
-    { day: "May 11", x: 460, y: 38 },
+    { day: "Apr 28", usd: 36, sol: 0.24 },
+    { day: "Apr 29", usd: 43, sol: 0.29 },
+    { day: "Apr 30", usd: 49, sol: 0.33 },
+    { day: "May 1", usd: 40, sol: 0.27 },
+    { day: "May 2", usd: 59, sol: 0.39 },
+    { day: "May 3", usd: 53, sol: 0.35 },
+    { day: "May 4", usd: 64, sol: 0.43 },
+    { day: "May 5", usd: 39, sol: 0.26 },
+    { day: "May 6", usd: 56, sol: 0.37 },
+    { day: "May 7", usd: 46, sol: 0.31 },
+    { day: "May 8", usd: 76, sol: 0.51 },
+    { day: "May 9", usd: 65, sol: 0.43 },
+    { day: "May 10", usd: 88, sol: 0.59 },
+    { day: "May 11", usd: 81, sol: 0.54 },
   ],
 };
 
 export const networkStatus = {
-  network: "Solana Mainnet",
+  network: "Solana Devnet",
   status: "Healthy",
   avgConfirmation: "1.2 seconds",
   speedLabel: "Very fast",

@@ -1,15 +1,56 @@
-import { ChevronDown, CopyIcon } from "@/components/dashboard/icons";
+"use client";
+
+import { useState } from "react";
+import { ChevronDown } from "@/components/dashboard/icons";
+import { MerchantReceivingWalletField } from "@/components/dashboard/MerchantWalletField";
+import { MerchantWalletPanel } from "@/components/dashboard/MerchantWalletPanel";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   CtaButton,
   FieldLabel,
   Panel,
   PanelHeading,
-  ReadonlyInput,
 } from "@/components/dashboard/primitives";
 import { merchant } from "@/lib/mock-data";
 
+const timezones = [
+  "Asia/Jakarta (GMT+7)",
+  "Asia/Makassar (GMT+8)",
+  "Asia/Jayapura (GMT+9)",
+  "Asia/Singapore (GMT+8)",
+  "Asia/Kuala_Lumpur (GMT+8)",
+  "Asia/Bangkok (GMT+7)",
+  "Asia/Ho_Chi_Minh (GMT+7)",
+  "Asia/Manila (GMT+8)",
+  "Asia/Tokyo (GMT+9)",
+  "Asia/Seoul (GMT+9)",
+  "Asia/Dubai (GMT+4)",
+  "Europe/London (GMT+0/+1)",
+  "Europe/Paris (GMT+1/+2)",
+  "America/New_York (GMT-5/-4)",
+  "America/Los_Angeles (GMT-8/-7)",
+  "Australia/Sydney (GMT+10/+11)",
+  "UTC",
+];
+
 export default function SettingsPage() {
+  const [merchantName, setMerchantName] = useState(merchant.name);
+  const [location, setLocation] = useState(merchant.location);
+  const [timezone, setTimezone] = useState(merchant.timezone);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState("No unsaved changes.");
+
+  const handleSave = () => {
+    setSaveStatus(`Saved ${merchantName} settings for ${timezone}.`);
+  };
+
+  const handleProfilePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProfilePhoto(URL.createObjectURL(file));
+    setSaveStatus("Unsaved changes.");
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -23,46 +64,111 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <div className="sm:col-span-2">
+              <FieldLabel>Profile Photo</FieldLabel>
+              <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-bg px-3 py-3">
+                <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-[12px] bg-lavender text-[24px]">
+                  {profilePhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profilePhoto}
+                      alt={`${merchantName} profile`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    merchant.emoji
+                  )}
+                </div>
+                <label className="focus-ring inline-flex cursor-pointer items-center justify-center rounded-[10px] border border-border bg-surface px-3 py-2 text-[12px] font-bold text-text hover:text-purple">
+                  Upload Profile Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePhotoChange}
+                    className="sr-only"
+                  />
+                </label>
+                {profilePhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfilePhoto(null);
+                      setSaveStatus("Unsaved changes.");
+                    }}
+                    className="focus-ring rounded-[8px] px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-text"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
               <FieldLabel>Merchant Name</FieldLabel>
-              <ReadonlyInput>{merchant.name}</ReadonlyInput>
+              <input
+                value={merchantName}
+                onChange={(event) => {
+                  setMerchantName(event.target.value);
+                  setSaveStatus("Unsaved changes.");
+                }}
+                className="w-full rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text outline-none focus:border-purple"
+                aria-label="Merchant name"
+              />
             </div>
 
             <div className="sm:col-span-2">
               <FieldLabel>Receiving Wallet (Solana)</FieldLabel>
-              <ReadonlyInput
-                mono
-                trailing={
-                  <span className="text-muted">
-                    <CopyIcon size={12} />
-                  </span>
-                }
-              >
-                {merchant.wallet}
-              </ReadonlyInput>
+              <MerchantReceivingWalletField fallback={merchant.wallet} />
             </div>
 
             <div className="sm:col-span-2">
               <FieldLabel>Location</FieldLabel>
-              <ReadonlyInput>{merchant.location}</ReadonlyInput>
+              <input
+                value={location}
+                onChange={(event) => {
+                  setLocation(event.target.value);
+                  setSaveStatus("Unsaved changes.");
+                }}
+                className="w-full rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text outline-none focus:border-purple"
+                aria-label="Merchant location"
+              />
             </div>
 
             <div>
               <FieldLabel>Time Zone</FieldLabel>
-              <ReadonlyInput
-                trailing={
-                  <span className="text-muted">
-                    <ChevronDown size={12} />
-                  </span>
-                }
-              >
-                {merchant.timezone}
-              </ReadonlyInput>
+              <label className="flex items-center justify-between rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text focus-within:border-purple">
+                <select
+                  value={timezone}
+                  onChange={(event) => {
+                    setTimezone(event.target.value);
+                    setSaveStatus("Unsaved changes.");
+                  }}
+                  className="min-w-0 flex-1 bg-transparent outline-none"
+                  aria-label="Merchant time zone"
+                >
+                  {timezones.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-muted">
+                  <ChevronDown size={12} />
+                </span>
+              </label>
             </div>
           </div>
 
-          <div className="mt-5 flex justify-end">
-            <CtaButton className="sm:max-w-[220px]">Save Changes</CtaButton>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-[12px] font-semibold text-muted">{saveStatus}</div>
+            <CtaButton className="sm:max-w-[220px]" onClick={handleSave}>
+              Save Changes
+            </CtaButton>
           </div>
+        </Panel>
+
+        <Panel className="bg-bg-soft">
+          <PanelHeading title="Wallet Access" sub="Email login and external Solana wallets are supported." />
+          <MerchantWalletPanel />
         </Panel>
 
         <Panel className="bg-bg-soft">

@@ -124,9 +124,16 @@ exports.Prisma.MerchantScalarFieldEnum = {
   id: 'id',
   name: 'name',
   walletAddress: 'walletAddress',
-  platformFeeBps: 'platformFeeBps',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  splitAddress: 'splitAddress',
+  splitPercent: 'splitPercent'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  merchantId: 'merchantId',
+  amount: 'amount',
+  status: 'status',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -139,9 +146,15 @@ exports.Prisma.QueryMode = {
   insensitive: 'insensitive'
 };
 
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
 
 exports.Prisma.ModelName = {
-  Merchant: 'Merchant'
+  Merchant: 'Merchant',
+  Session: 'Session'
 };
 
 /**

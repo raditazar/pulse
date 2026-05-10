@@ -2,4 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
   - "contracts"
-
+allowBuilds:
+  '@prisma/engines': true
+  bufferutil: true
+  esbuild: true
+  prisma: true
+  sharp: true
+  utf-8-validate: true

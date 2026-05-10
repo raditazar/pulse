@@ -8,10 +8,23 @@ datasource db {
 }
 
 model Merchant {
-  id             String   @id @default(cuid())
-  name           String
-  walletAddress  String
-  platformFeeBps Int      @default(1000)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  walletAddress String    @map("wallet_address")
+  splitAddress  String?   @map("split_address")
+  splitPercent  Int       @default(10) @map("split_percent") // % ke platform/lokasi, sisanya ke merchant
+  sessions      Session[]
+
+  @@map("merchants")
+}
+
+model Session {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId String?   @map("merchant_id") @db.Uuid
+  amount     Decimal   @db.Decimal
+  status     String?   @default("pending")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("sessions")
 }

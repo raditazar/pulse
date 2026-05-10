@@ -9,11 +9,14 @@
   "scripts": {
     "build": "tsc --noEmit",
     "db:generate": "prisma generate",
+    "db:pull": "prisma db pull",
+    "db:push": "prisma db push",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "dotenv": "^16.5.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {

@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { SegmentedToggle } from "@pulse/ui";
 import {
   CheckIcon,
-  ChevronRight,
   CopyIcon,
   CrossIcon,
   LockIcon,
@@ -10,6 +11,7 @@ import {
   SolanaTokenGlyph,
   WalletGlyph,
 } from "./icons";
+import { BuyerPaymentAction, BuyerWalletField } from "./BuyerWalletConnect";
 import { MerchantCard } from "./MerchantCard";
 import { errorReason, merchant, payment, type DisplayCurrency } from "@/lib/mock-checkout";
 import {
@@ -26,6 +28,34 @@ import {
 
 const stateIconBase = "mx-auto grid place-items-center rounded-full text-white";
 const currencies: DisplayCurrency[] = ["USD", "SOL"];
+
+function PaymentBreakdown() {
+  return (
+    <section className="rounded-card border border-border bg-surface px-4 py-4 shadow-[0_18px_32px_-24px_rgba(15,23,42,0.45)]">
+      <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Payment Details</div>
+      <div className="mt-3 flex flex-col gap-2.5 text-[13px]">
+        {payment.breakdown.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-4 text-muted">
+            <span>{item.label}</span>
+            <span className="num font-semibold text-text">{item.amount}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
+        <span className="text-[13px] font-bold text-text">Total</span>
+        <span className="num text-[28px] font-bold leading-none text-text sm:text-[32px]">
+          {payment.total}
+        </span>
+      </div>
+      <div className="mt-4">
+        <AlertInfo>
+          <LockIcon size={13} />
+          <span>Tip: payments are faster and cheaper through the Solana chain.</span>
+        </AlertInfo>
+      </div>
+    </section>
+  );
+}
 
 export function LoadingScreen() {
   return (
@@ -52,36 +82,42 @@ export function CheckoutScreen({
   onBack?: () => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <BackButton onClick={onBack} />
-
-      <MerchantCard />
-      <CurrencyToggle currency={currency} onChange={onCurrencyChange} />
-
-      <FieldRow label="Payment Total" amount>
-        <span>{payment.amounts[currency]}</span>
-        <span className="text-[12px] font-semibold text-muted">{currency}</span>
-      </FieldRow>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FieldRow label="Network" hint="Fast • Low fees">
-          <span>{payment.network}</span>
-          <SolanaStripeMark />
-        </FieldRow>
-        <FieldRow label="Wallet">
-          <span className="font-semibold text-muted">Not connected</span>
-          <span className="text-muted">
-            <ChevronRight />
-          </span>
-        </FieldRow>
+    <div className="flex flex-1 flex-col">
+      <div className="relative -mx-5 -mt-5 overflow-hidden rounded-b-[26px] px-5 pt-5 sm:-mx-6 sm:-mt-6 sm:rounded-t-card sm:px-6 sm:pt-6">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 18% 10%, rgba(255,255,255,0.24), transparent 28%), linear-gradient(135deg, #7C3AED 0%, #9945FF 48%, #B871FF 100%)",
+          }}
+        />
+        <div className="relative">
+          <BackButton
+            onClick={onBack}
+            className="text-white/85 hover:bg-white/12 hover:text-white"
+          />
+          <MerchantCard />
+        </div>
       </div>
 
-      <div className="mt-2 flex flex-col gap-2.5 pt-2">
-        <PrimaryButton onClick={onPay}>Connect Wallet</PrimaryButton>
-        <AlertInfo>
-          <LockIcon size={13} />
-          <span>Secure, instant payment on the Solana network.</span>
-        </AlertInfo>
+      <div className="relative z-10 -mt-10">
+        <PaymentBreakdown />
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 pt-4">
+        <CurrencyToggle currency={currency} onChange={onCurrencyChange} />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <FieldRow label="Network" hint="Fast • Low fees">
+            <span>{payment.network}</span>
+            <SolanaStripeMark />
+          </FieldRow>
+          <BuyerWalletField />
+        </div>
+
+        <div className="mt-auto flex flex-col gap-2.5 pt-3">
+          <BuyerPaymentAction onPay={onPay} />
+        </div>
       </div>
     </div>
   );
@@ -144,6 +180,18 @@ export function SuccessScreen({
   currency: DisplayCurrency;
   onDone?: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopySignature = async () => {
+    await navigator.clipboard?.writeText(payment.txSignature);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const handleOpenSolscan = () => {
+    window.open(`https://solscan.io/tx/${payment.txSignature}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center gap-3 py-2">
       <div
@@ -173,19 +221,27 @@ export function SuccessScreen({
 
       <div className="flex w-full items-center justify-between text-[12px] text-muted">
         <span>Tx Signature</span>
-        <span className="num inline-flex items-center gap-1.5 font-semibold text-text">
+        <button
+          type="button"
+          onClick={handleCopySignature}
+          className="focus-ring num inline-flex items-center gap-1.5 rounded-[6px] font-semibold text-text hover:text-purple"
+          aria-label="Copy transaction signature"
+        >
           {payment.txSignature}
           <span className="grid h-5 w-5 place-items-center rounded bg-bg text-muted">
             <CopyIcon size={10} />
           </span>
-        </span>
+          <span className="sr-only">{copied ? "Copied" : "Copy"}</span>
+        </button>
       </div>
+      {copied && <div className="text-[11px] font-semibold text-muted">Signature copied.</div>}
 
       <PrimaryButton onClick={onDone} className="mt-3">
         Back to Merchant
       </PrimaryButton>
       <button
         type="button"
+        onClick={handleOpenSolscan}
         className="focus-ring text-[12px] font-semibold text-purple hover:underline"
       >
         View on Solscan ↗
@@ -202,24 +258,11 @@ function CurrencyToggle({
   onChange: (currency: DisplayCurrency) => void;
 }) {
   return (
-    <div className="inline-grid grid-cols-2 rounded-[10px] border border-border bg-bg-soft p-1">
-      {currencies.map((item) => {
-        const active = item === currency;
-        return (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            className={`focus-ring rounded-[8px] px-3 py-2 text-[12px] font-bold transition-colors ${
-              active ? "bg-surface text-purple panel-shadow" : "text-muted hover:text-text"
-            }`}
-            aria-pressed={active}
-          >
-            {item}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedToggle
+      options={currencies.map((item) => ({ value: item }))}
+      value={currency}
+      onChange={onChange}
+    />
   );
 }
 

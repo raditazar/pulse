@@ -53,6 +53,7 @@ export function SegmentedToggle<T extends string>({
           boxShadow: "0 8px 18px -12px rgba(153,69,255,0.9)",
           transform: `translateX(${activeIndex * 100}%)`,
           transition: "transform 300ms ease-out",
+          pointerEvents: "none",
         }}
       />
       {options.map((option) => {

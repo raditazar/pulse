@@ -1,13 +1,13 @@
 export const merchant = {
-  name: "Kopi Kita",
+  name: "Corner Coffee",
   emoji: "☕",
-  location: "Jl. Kemang Raya No. 8, Jakarta",
+  location: "8 Kemang Raya, Jakarta",
   wallet: "7xgY…7Pk3",
   timezone: "Asia/Jakarta (GMT+7)",
 };
 
 export const greeting = {
-  name: "Andi",
+  name: "Alex",
   date: "May 11, 2025",
 };
 
@@ -66,7 +66,7 @@ export type NfcTile = {
 export const cashierNfc: NfcTile = {
   id: "A1B2C3",
   name: "Main Cashier NFC",
-  merchant: "Kopi Kita",
+  merchant: "Corner Coffee",
   status: "active",
   lastTap: "Active session",
   lastTapTone: "success",
@@ -83,11 +83,11 @@ export type Transaction = {
 };
 
 export const transactions: Transaction[] = [
-  { time: "10:41", merchant: "Kopi Kita", amount: { USD: "$1.56", SOL: "0.0104 SOL" }, status: "success", wallet: "5K3r…j9kL" },
-  { time: "10:32", merchant: "Kopi Kita", amount: { USD: "$1.88", SOL: "0.0125 SOL" }, status: "success", wallet: "4GhF…a8mN" },
-  { time: "10:21", merchant: "Kopi Kita", amount: { USD: "$0.94", SOL: "0.0063 SOL" }, status: "success", wallet: "3JdZ…k1Pq" },
-  { time: "10:15", merchant: "Kopi Kita", amount: { USD: "$3.13", SOL: "0.0209 SOL" }, status: "failed", wallet: "—" },
-  { time: "10:02", merchant: "Kopi Kita", amount: { USD: "$1.25", SOL: "0.0083 SOL" }, status: "success", wallet: "2Mnb…z7Xr" },
+  { time: "10:41", merchant: "Corner Coffee", amount: { USD: "$1.56", SOL: "0.0104 SOL" }, status: "success", wallet: "5K3r…j9kL" },
+  { time: "10:32", merchant: "Corner Coffee", amount: { USD: "$1.88", SOL: "0.0125 SOL" }, status: "success", wallet: "4GhF…a8mN" },
+  { time: "10:21", merchant: "Corner Coffee", amount: { USD: "$0.94", SOL: "0.0063 SOL" }, status: "success", wallet: "3JdZ…k1Pq" },
+  { time: "10:15", merchant: "Corner Coffee", amount: { USD: "$3.13", SOL: "0.0209 SOL" }, status: "failed", wallet: "—" },
+  { time: "10:02", merchant: "Corner Coffee", amount: { USD: "$1.25", SOL: "0.0083 SOL" }, status: "success", wallet: "2Mnb…z7Xr" },
 ];
 
 export const createPaymentDefaults = {

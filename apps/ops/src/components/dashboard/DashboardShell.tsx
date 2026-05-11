@@ -1,13 +1,69 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { PulseLogo } from "@pulse/ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
+import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
+import { getStoredMerchant } from "@/lib/merchant-access";
 import { CloseIcon, MenuIcon } from "./icons";
+import { PulseLogoImage } from "./PulseLogoImage";
 import { Sidebar } from "./Sidebar";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { ready, authenticated } = usePrivy();
+  const { wallets, ready: walletsReady } = useSolanaWallets();
+  const wallet = wallets[0];
+  const [accessState, setAccessState] = useState<"checking" | "allowed">("checking");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function verifyMerchantAccess() {
+      if (!ready) return;
+
+      if (!authenticated) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!walletsReady) return;
+
+      if (!wallet?.address) {
+        router.replace("/login");
+        return;
+      }
+
+      const merchant = getStoredMerchant(wallet.address);
+      if (cancelled) return;
+
+      if (merchant) {
+        setAccessState("allowed");
+      } else {
+        router.replace("/login");
+      }
+    }
+
+    verifyMerchantAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, authenticated, walletsReady, wallet?.address, router]);
+
+  if (accessState === "checking") {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-bg px-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <PulseLogoImage size={40} />
+          <div className="shimmer h-5 w-28 rounded-pill" />
+          <p className="text-[11px] font-semibold text-muted">Checking merchant access...</p>
+        </div>
+      </div>
+    );
+  }
 
   const openDrawer = () => {
     setDrawerClosing(false);
@@ -34,7 +90,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         {/* mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-bg/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center gap-2 text-[14px] font-extrabold tracking-[0.06em] text-text">
-            <PulseLogo size={26} />
+            <PulseLogoImage size={26} />
             PULSE
           </div>
           <button

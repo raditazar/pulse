@@ -44,25 +44,34 @@ pub struct PaymentExecuted {
     pub timestamp: i64,
 }
 
-/// Emit setelah cctp_hook_handler berhasil split USDC ke merchant + beneficiary.
+/// Emit setelah relayer trusted berhasil meng-execute split USDC cross-chain.
+/// Source funds: ATA treasury milik relayer (`PulseConfig.trusted_relayer`).
 #[event]
-pub struct CrossChainPaymentExecuted {
+pub struct TrustedSplitExecuted {
     pub session: Pubkey,
     pub merchant: Pubkey,
-    pub source_domain: u32,
-    pub source_sender: [u8; 20],
+    pub relayer: Pubkey,
+    pub source_eid: u32,
+    pub source_payer: [u8; 20],
     pub amount_usdc: u64,
     pub primary_share: u64,
     pub secondary_share: u64,
     pub timestamp: i64,
 }
 
-/// Emit ketika LayerZero PaymentIntent diterima (Phase 2).
 #[event]
-pub struct LzPaymentIntentReceived {
-    pub session: Pubkey,
-    pub source_eid: u32,
-    pub source_payer: [u8; 20],
-    pub amount: u64,
+pub struct PulseConfigInitialized {
+    pub config: Pubkey,
+    pub admin: Pubkey,
+    pub trusted_relayer: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct TrustedRelayerUpdated {
+    pub config: Pubkey,
+    pub admin: Pubkey,
+    pub previous_relayer: Pubkey,
+    pub new_relayer: Pubkey,
     pub timestamp: i64,
 }

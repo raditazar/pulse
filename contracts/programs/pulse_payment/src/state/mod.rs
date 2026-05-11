@@ -8,6 +8,24 @@ pub const MAX_SPLIT_LABEL_LEN: usize = 32;
 pub const MAX_METADATA_URI_LEN: usize = 200;
 pub const VAULT_SEED_PREFIX: &[u8] = b"vault";
 
+/// Allowlist LayerZero V2 EID untuk source chain Pulse (testnet only).
+/// 40161 = Ethereum Sepolia, 40231 = Arbitrum Sepolia, 40245 = Base Sepolia.
+pub const ACCEPTED_SOURCE_EIDS: &[u32] = &[40161, 40231, 40245];
+
+#[account]
+#[derive(InitSpace)]
+pub struct PulseConfig {
+    /// Admin yang dapat memperbarui trusted_relayer.
+    pub admin: Pubkey,
+    /// Pubkey signer relayer off-chain yang berhak memanggil `execute_trusted_split`.
+    pub trusted_relayer: Pubkey,
+    pub bump: u8,
+}
+
+impl PulseConfig {
+    pub const SEED_PREFIX: &'static [u8] = b"pulse-config";
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq, InitSpace)]
 pub struct SplitConfig {
     pub wallet: Pubkey,

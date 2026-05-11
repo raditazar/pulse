@@ -1,21 +1,17 @@
 {
-  "name": "@pulse/solana",
+  "name": "@pulse/evm",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./connection": "./src/connection.ts",
-    "./transactions": "./src/transactions/index.ts",
-    "./cross-chain": "./src/cross-chain/index.ts",
-    "./lz": "./src/lz/index.ts"
+    "./abi": "./src/abi/index.ts",
+    "./addresses": "./src/addresses.ts",
+    "./encoding": "./src/encoding.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@solana/web3.js": "^1.98.4"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

@@ -1,8 +1,8 @@
 use anchor_lang::prelude::*;
 
 /// Emit di akhir `lz_receive` ketika PaymentIntent dari EVM berhasil di-decode.
-/// Off-chain indexer Pulse subscribe event ini dan trigger pre-warm session di program
-/// `pulse_payment` (atau show "incoming payment" di merchant dashboard).
+/// Trusted relayer Pulse (signer di `pulse_payment::PulseConfig.trusted_relayer`) subscribe
+/// event ini dan memanggil `pulse_payment.execute_trusted_split` untuk settle session.
 #[event]
 pub struct LzPaymentIntentReceived {
     pub session_id: [u8; 32],

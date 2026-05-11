@@ -1,0 +1,28 @@
+{
+  "name": "@pulse/relayer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@pulse/database": "workspace:*",
+    "@pulse/evm": "workspace:*",
+    "@pulse/solana": "workspace:*",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.98.4",
+    "dotenv": "^17.4.2",
+    "pino": "^9.6.0",
+    "pino-pretty": "^11.3.0",
+    "viem": "^2.48.11"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

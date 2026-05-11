@@ -5,7 +5,9 @@ dist
 build
 *.tsbuildinfo
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
 .DS_Store
 
 # Solana keypairs — never commit
@@ -16,3 +18,4 @@ build
 # Anchor build output
 contracts/target/
 contracts/.anchor/
+notes.md

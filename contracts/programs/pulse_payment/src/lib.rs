@@ -1,16 +1,18 @@
 //! Pulse Payment program — split payment Solana NFC tap-to-pay.
 //!
-//! Modul cross-chain CCTP V2 di-handle di sini (`cross_chain/` + `instructions/cross_chain/`).
-//! LayerZero V2 OApp (Phase 2) dipisah ke crate `pulse_lz_oapp/` di workspace yang sama supaya
-//! dependency `oapp` git tidak menambah build time / risk untuk Phase 1.
+//! ## Modules
 //!
-//! Core program (merchant lifecycle, payment session lifecycle, dan `execute_split_payment`)
-//! sudah live di crate ini dan menjadi source of truth untuk integrasi backend/frontend
-//! maupun stretch cross-chain flow.
+//! - **Core**: merchant lifecycle, payment session lifecycle, `execute_split_payment`
+//!   (single-chain Solana → Solana flow yang dipakai oleh checkout PWA).
+//! - **Trusted cross-chain layer**: `init_config` + `set_trusted_relayer` mengatur global
+//!   `PulseConfig` PDA. `execute_trusted_split` adalah entry point relayer off-chain yang
+//!   menyelesaikan payment yang berasal dari EVM (Base/Arb Sepolia) via LayerZero V2.
+//!
+//! LayerZero V2 OApp Solana sendiri ada di crate terpisah `pulse_lz_oapp/` — ia hanya
+//! decode payload + emit event. Trust boundary di-enforce oleh `PulseConfig.trusted_relayer`.
 
 use anchor_lang::prelude::*;
 
-pub mod cross_chain;
 pub mod errors;
 pub mod events;
 pub mod instructions;
@@ -75,13 +77,27 @@ pub mod pulse_payment {
         instructions::execute_split_payment::handler(ctx)
     }
 
-    /// CCTP V2 hook handler — dipanggil setelah USDC ter-mint ke vault PDA.
-    /// Lihat `instructions/cross_chain/cctp_hook.rs` untuk full flow.
-    pub fn cctp_hook_handler<'info>(
-        ctx: Context<'_, '_, 'info, 'info, CctpHookHandler<'info>>,
-        hook_data_raw: Vec<u8>,
-        vault_authority_bump: u8,
+    /// Inisialisasi PulseConfig PDA (admin + trusted relayer). One-shot per cluster.
+    pub fn init_config(ctx: Context<InitConfig>, trusted_relayer: Pubkey) -> Result<()> {
+        instructions::init_config::handler(ctx, trusted_relayer)
+    }
+
+    /// Update trusted relayer. Hanya admin di PulseConfig yang boleh memanggil.
+    pub fn set_trusted_relayer(
+        ctx: Context<SetTrustedRelayer>,
+        new_relayer: Pubkey,
     ) -> Result<()> {
-        instructions::cross_chain::cctp_hook::handler(ctx, hook_data_raw, vault_authority_bump)
+        instructions::set_trusted_relayer::handler(ctx, new_relayer)
+    }
+
+    /// Trusted relayer entry point untuk settle PaymentSession yang berasal dari EVM
+    /// via LayerZero V2. Lihat `instructions/execute_trusted_split.rs` untuk full flow.
+    pub fn execute_trusted_split<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ExecuteTrustedSplit<'info>>,
+        source_eid: u32,
+        source_payer: [u8; 20],
+        amount_usdc: u64,
+    ) -> Result<()> {
+        instructions::execute_trusted_split::handler(ctx, source_eid, source_payer, amount_usdc)
     }
 }

@@ -6,6 +6,20 @@
 - Upgrade authority wallet: `contracts/.keys/pulse-deploy.json`
 - Deploy signature: `curomo4RytpQozBU52mC2XyoPnxMt2bb72jEvJeGwTZXGAGyKnZLyhan5sWDb679zwxoEqKfQhMN9FTWnrho4Vs`
 
+## Cross-chain (post-pivot)
+
+Pulse sekarang pakai **LayerZero V2 + trusted off-chain relayer + mock USDC sendiri**.
+CCTP **sudah dihapus** dari scope (modul `cross_chain/`, paket TS `cctp/`, IDL CCTP
+sudah dilepas). Lihat [`cross-chain-architecture.md`](./cross-chain-architecture.md) untuk
+flow lengkap.
+
+Komponen baru:
+- `contracts/programs/pulse_payment/src/instructions/execute_trusted_split.rs`
+- `contracts/programs/pulse_payment/src/state/mod.rs::PulseConfig`
+- `evm/` — Foundry workspace: `MockUSDC.sol` + `PulseSender.sol`
+- `apps/relayer` — off-chain trusted relayer
+- `packages/evm` — shared ABI + address registry
+
 ## Canonical artifacts
 - Anchor config: [contracts/Anchor.toml](/home/kurohitam/code/pulse/contracts/Anchor.toml)
 - Program source: [contracts/programs/pulse_payment/src/lib.rs](/home/kurohitam/code/pulse/contracts/programs/pulse_payment/src/lib.rs)
@@ -17,8 +31,8 @@
   - seeds: `["merchant", authority_pubkey]`
 - `PaymentSession`
   - seeds: `["session", merchant_pda, session_id[32]]`
-- Cross-chain vault authority
-  - seeds: `["vault", session_pda]`
+- `PulseConfig` (trusted-relayer global config)
+  - seeds: `["pulse-config"]`
 
 ## State model
 ### Merchant

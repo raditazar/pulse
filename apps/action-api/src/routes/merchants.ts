@@ -14,7 +14,10 @@ import {
 const merchants = new Hono();
 
 const createMerchantSchema = z.object({
+  privyUserId: z.string().min(1),
   authority: z.string().min(32),
+  email: z.string().email().optional(),
+  businessType: z.string().max(64).optional(),
   primaryBeneficiary: z.string().min(32),
   splitBasisPoints: z.number().int().min(0).max(10_000).default(1000),
   metadataUri: z.string().optional(),
@@ -142,6 +145,30 @@ function serializeTransaction(tx: Awaited<ReturnType<typeof prisma.transaction.f
   };
 }
 
+/* GET /me must come before GET /:id so Hono doesn't treat "me" as an id param */
+merchants.get("/me", async (c) => {
+  const privyUserId = c.req.query("privyUserId");
+  const wallet = c.req.query("wallet");
+
+  if (!privyUserId && !wallet) {
+    return c.json({ error: "privyUserId or wallet query parameter required" }, 400);
+  }
+
+  const conditions: { privyUserId?: string; authority?: string }[] = [];
+  if (privyUserId) conditions.push({ privyUserId });
+  if (wallet) conditions.push({ authority: wallet });
+
+  const merchant = await prisma.merchant.findFirst({
+    where: { OR: conditions },
+  });
+
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
+
+  return c.json(buildMerchantResponse(merchant));
+});
+
 merchants.post("/", async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = createMerchantSchema.safeParse(body);
@@ -149,15 +176,22 @@ merchants.post("/", async (c) => {
     return c.json({ error: parsed.error.flatten() }, 400);
   }
 
+  const baseData = buildCreateMerchantData(parsed.data);
   const createData = {
-    ...buildCreateMerchantData(parsed.data),
+    ...baseData,
     walletAddress: parsed.data.walletAddress ?? parsed.data.primaryBeneficiary,
     usdcTokenAccount: parsed.data.usdcTokenAccount ?? "",
     platformFeeBps: parsed.data.platformFeeBps ?? parsed.data.splitBasisPoints,
   };
+
   const merchant = await prisma.merchant.upsert({
-    where: { merchantPda: createData.merchantPda },
-    update: createData,
+    where: { privyUserId: parsed.data.privyUserId },
+    /* On re-register only update cosmetic/identity fields, never touch PDA or wallet */
+    update: {
+      name: createData.name,
+      email: createData.email,
+      businessType: createData.businessType,
+    },
     create: createData,
   });
 

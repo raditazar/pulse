@@ -36,7 +36,10 @@ export function mapMerchantRecord(merchant: Merchant): PulseMerchantRecord {
   return {
     id: merchant.id,
     merchantPda: merchant.merchantPda,
+    privyUserId: merchant.privyUserId,
     authority: merchant.authority,
+    email: merchant.email,
+    businessType: merchant.businessType,
     primaryBeneficiary: merchant.primaryBeneficiary,
     splitBasisPoints: merchant.splitBasisPoints,
     splitBeneficiaries: Array.isArray(merchant.splitBeneficiaries)
@@ -44,6 +47,9 @@ export function mapMerchantRecord(merchant: Merchant): PulseMerchantRecord {
       : [],
     metadataUri: merchant.metadataUri,
     name: merchant.name,
+    walletAddress: merchant.walletAddress,
+    usdcTokenAccount: merchant.usdcTokenAccount,
+    platformFeeBps: merchant.platformFeeBps,
     isActive: merchant.isActive,
     createdAt: merchant.createdAt.toISOString(),
     updatedAt: merchant.updatedAt.toISOString(),
@@ -75,8 +81,11 @@ export function buildCreateMerchantData(input: CreateMerchantInput) {
   const [merchantPda] = derivePulseMerchantPda(authority);
 
   return {
+    privyUserId: input.privyUserId,
     merchantPda: merchantPda.toBase58(),
     authority: authority.toBase58(),
+    email: input.email ?? null,
+    businessType: input.businessType ?? null,
     primaryBeneficiary: primaryBeneficiary.toBase58(),
     splitBasisPoints: input.splitBasisPoints,
     splitBeneficiaries: input.splitBeneficiaries ?? [],

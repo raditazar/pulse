@@ -1,14 +1,22 @@
 import { NfcIcon } from "./icons";
 import { ChipVariant } from "./primitives";
-import type { NfcTile as NfcTileT } from "@/lib/mock-data";
 
-const dotColor: Record<NfcTileT["lastTapTone"], string> = {
+export type DashboardNfcTile = {
+  id: string;
+  name: string;
+  merchant: string;
+  status: "active" | "inactive";
+  lastTap: string;
+  lastTapTone: "success" | "warn" | "muted";
+};
+
+const dotColor: Record<DashboardNfcTile["lastTapTone"], string> = {
   success: "var(--color-success)",
   warn: "var(--color-warn)",
   muted: "var(--color-muted)",
 };
 
-const lastColor: Record<NfcTileT["lastTapTone"], string> = {
+const lastColor: Record<DashboardNfcTile["lastTapTone"], string> = {
   success: "var(--color-muted)",
   warn: "var(--color-warn)",
   muted: "var(--color-muted)",
@@ -19,7 +27,7 @@ export function NfcTile({
   onToggle,
   onCopy,
 }: {
-  tile: NfcTileT;
+  tile: DashboardNfcTile;
   onToggle?: () => void;
   onCopy?: () => void;
 }) {
@@ -31,7 +39,7 @@ export function InteractiveNfcTile({
   onToggle,
   onCopy,
 }: {
-  tile: NfcTileT;
+  tile: DashboardNfcTile;
   onToggle?: () => void;
   onCopy?: () => void;
 }) {

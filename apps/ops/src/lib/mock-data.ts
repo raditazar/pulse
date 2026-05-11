@@ -29,24 +29,26 @@ export const statsByCurrency = {
 } satisfies Record<DisplayCurrency, { label: string; value: string; delta: string; deltaUp: boolean; accent?: "success" }[]>;
 
 export const volumeChart = {
-  yTicks: {
-    USD: ["$95", "$63", "$31"],
-    SOL: ["0.63", "0.42", "0.21"],
-  },
-  // values in chart-y coords (already mapped, lower y = higher value)
   points: [
-    { day: "May 5", x: 40, y: 80 },
-    { day: "May 6", x: 110, y: 60 },
-    { day: "May 7", x: 180, y: 72 },
-    { day: "May 8", x: 250, y: 40 },
-    { day: "May 9", x: 320, y: 52 },
-    { day: "May 10", x: 390, y: 30 },
-    { day: "May 11", x: 460, y: 38 },
+    { day: "Apr 28", usd: 36, sol: 0.24 },
+    { day: "Apr 29", usd: 43, sol: 0.29 },
+    { day: "Apr 30", usd: 49, sol: 0.33 },
+    { day: "May 1", usd: 40, sol: 0.27 },
+    { day: "May 2", usd: 59, sol: 0.39 },
+    { day: "May 3", usd: 53, sol: 0.35 },
+    { day: "May 4", usd: 64, sol: 0.43 },
+    { day: "May 5", usd: 39, sol: 0.26 },
+    { day: "May 6", usd: 56, sol: 0.37 },
+    { day: "May 7", usd: 46, sol: 0.31 },
+    { day: "May 8", usd: 76, sol: 0.51 },
+    { day: "May 9", usd: 65, sol: 0.43 },
+    { day: "May 10", usd: 88, sol: 0.59 },
+    { day: "May 11", usd: 81, sol: 0.54 },
   ],
 };
 
 export const networkStatus = {
-  network: "Solana Mainnet",
+  network: "Solana Devnet",
   status: "Healthy",
   avgConfirmation: "1.2 seconds",
   speedLabel: "Very fast",
@@ -61,40 +63,14 @@ export type NfcTile = {
   lastTapTone: "success" | "warn" | "muted";
 };
 
-export const nfcTiles: NfcTile[] = [
-  {
-    id: "A1B2C3",
-    name: "Table 1 (NFC #A1B2C3)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Active session",
-    lastTapTone: "success",
-  },
-  {
-    id: "D4E5F6",
-    name: "Table 2 (NFC #D4E5F6)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Active session",
-    lastTapTone: "success",
-  },
-  {
-    id: "G7H8I9",
-    name: "Table 3 (NFC #G7H8I9)",
-    merchant: "Kopi Kita",
-    status: "active",
-    lastTap: "Last tap: 10:21",
-    lastTapTone: "warn",
-  },
-  {
-    id: "J0K1L2",
-    name: "Table 4 (NFC #J0K1L2)",
-    merchant: "Kopi Kita",
-    status: "inactive",
-    lastTap: "Unused",
-    lastTapTone: "muted",
-  },
-];
+export const cashierNfc: NfcTile = {
+  id: "A1B2C3",
+  name: "Main Cashier NFC",
+  merchant: "Kopi Kita",
+  status: "active",
+  lastTap: "Active session",
+  lastTapTone: "success",
+};
 
 export type TxStatus = "success" | "failed" | "pending";
 
@@ -120,5 +96,4 @@ export const createPaymentDefaults = {
     SOL: "0.0209 SOL",
   },
   description: "Cappuccino Large",
-  selectedSticker: "Table 3 (NFC #A1B2C3)",
 };

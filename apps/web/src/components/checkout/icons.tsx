@@ -1,3 +1,6 @@
+export { PulseLogo } from "@pulse/ui";
+
+
 export function ChevronLeft({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -50,10 +53,21 @@ export function CopyIcon({ size = 9 }: { size?: number }) {
 
 export function WalletGlyph({ size = 60 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="16" y="6" width="32" height="52" rx="6" />
-      <path d="M16 14h32M16 50h32" />
-      <circle cx="32" cy="54" r="1.5" fill="currentColor" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M13 22.5h36.5c4 0 7.5 3.2 7.5 7.5v18c0 4.1-3.4 7.5-7.5 7.5h-35c-4.1 0-7.5-3.4-7.5-7.5V18.5c0-4 3.2-7 7.1-7h31.4" />
+      <path d="M13 22.5 44.7 9.7c3.7-1.5 7.8 1.2 7.8 5.2v7.6" />
+      <path d="M43 35.5h14v11H43c-3 0-5.5-2.5-5.5-5.5s2.5-5.5 5.5-5.5Z" />
+      <circle cx="44.5" cy="41" r="1.8" fill="currentColor" stroke="none" />
     </svg>
   );
 }

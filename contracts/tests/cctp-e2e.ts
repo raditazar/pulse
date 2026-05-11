@@ -21,13 +21,29 @@
  * - Base Sepolia wallet (EVM_PRIVATE_KEY) dengan ETH (gas) + USDC sufficient untuk burn.
  * - Env vars di `contracts/.env`:
  *     SOLANA_RPC_URL=https://api.devnet.solana.com
- *     PULSE_PROGRAM_ID=Gh2NP3fBQfdARCkTerXx8vzgEY1yFhH5ApM8v79rj8d2
+ *     PULSE_PROGRAM_ID=2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF
  *     EVM_RPC_URL=https://sepolia.base.org
  *     EVM_PRIVATE_KEY=0x...
  *     AMOUNT_USDC_BASE_UNITS=1000000   # 1 USDC
  *
  * # Run
  *   pnpm tsx contracts/tests/cctp-e2e.ts
+ *
+ * # Flow
+ *   1. Setup mock Merchant + PaymentSession di Solana Devnet
+ *   2. Encode hook_data (88 bytes) untuk session_id + Base Sepolia domain
+ *   3. Call `TokenMessengerV2.depositForBurnWithHook` di Base Sepolia (EVM)
+ *   4. Poll Iris API sandbox untuk attestation (~13-30 detik)
+ *   5. Submit `MessageTransmitterV2.receive_message` di Solana Devnet
+ *      → CPI ke TokenMessengerMinterV2 → mint USDC ke vault PDA
+ *   6. Submit `pulse_payment.cctp_hook_handler(hook_data, vault_bump)` di Solana
+ *      → split USDC ke merchant + platform ATA
+ *   7. Verify saldo ATA matches expected merchant_share + platform_share
+ *
+ * # Catatan implementasi
+ * - EVM side pakai `viem` (pinning ke `^2.x` saat dependency ditambah).
+ * - Solana side pakai `@coral-xyz/anchor` v0.32 dengan IDL CCTP-V2 + Pulse.
+ * - Helper internal kita re-export dari `@pulse/solana/cctp`.
  */
 
 import { Buffer } from "node:buffer";

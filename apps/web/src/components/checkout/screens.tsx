@@ -1,17 +1,24 @@
 "use client";
 
+import { useState } from "react";
+import type { CheckoutSessionResponse } from "@pulse/types";
+import { SegmentedToggle } from "@pulse/ui";
 import {
-  CheckIcon,
-  ChevronRight,
   CopyIcon,
-  CrossIcon,
   LockIcon,
   SolanaStripeMark,
   SolanaTokenGlyph,
   WalletGlyph,
 } from "./icons";
+import { BuyerPaymentAction, BuyerWalletField } from "./BuyerWalletConnect";
 import { MerchantCard } from "./MerchantCard";
-import { errorReason, merchant, payment, type DisplayCurrency } from "@/lib/mock-checkout";
+import {
+  buildMockTxSignature,
+  formatNetworkLabel,
+  formatSolFromUsdc,
+  formatUsdc,
+  type DisplayCurrency,
+} from "@/lib/mock-checkout";
 import {
   AlertInfo,
   BackButton,
@@ -25,7 +32,75 @@ import {
 } from "./ui";
 
 const stateIconBase = "mx-auto grid place-items-center rounded-full text-white";
-const currencies: DisplayCurrency[] = ["USD", "SOL"];
+const currencies: DisplayCurrency[] = ["USDC", "SOL"];
+
+function formatAmount(amountUsdc: number | string, currency: DisplayCurrency) {
+  return currency === "SOL" ? formatSolFromUsdc(amountUsdc) : formatUsdc(amountUsdc);
+}
+
+function getSessionView(session: CheckoutSessionResponse, currency: DisplayCurrency = "USDC") {
+  const total = Number(session.session.amountUsdc);
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  const platformCut = (safeTotal * session.merchant.splitBasisPoints) / 10_000;
+  const sourceGas = currency === "SOL" ? 0 : Math.min(0.2, Math.max(0, safeTotal - platformCut));
+  const merchantNet = Math.max(0, safeTotal - platformCut - sourceGas);
+
+  return {
+    merchantName: session.merchant.name ?? "Pulse Merchant",
+    merchantAddress: `${session.merchant.merchantPda.slice(0, 6)}…${session.merchant.merchantPda.slice(-6)}`,
+    networkLabel: formatNetworkLabel(session.cluster),
+    totalLabel: formatAmount(safeTotal, currency),
+    merchantNetLabel: formatAmount(merchantNet, currency),
+    bridgeFeeLabel: formatAmount(platformCut, currency),
+    sourceGasLabel: formatAmount(sourceGas, currency),
+  };
+}
+
+function PaymentBreakdown({
+  session,
+  currency,
+  onCurrencyChange,
+}: {
+  session: CheckoutSessionResponse;
+  currency: DisplayCurrency;
+  onCurrencyChange: (currency: DisplayCurrency) => void;
+}) {
+  const view = getSessionView(session, currency);
+  const breakdown = [
+    { label: "Amount to merchant", amount: view.merchantNetLabel },
+    { label: "Bridge fee", amount: view.bridgeFeeLabel },
+    { label: "Source chain gas", amount: view.sourceGasLabel },
+  ];
+
+  return (
+    <section className="rounded-card border border-border bg-surface px-4 py-4 shadow-[0_18px_32px_-24px_rgba(15,23,42,0.45)]">
+      <CurrencyToggle currency={currency} onChange={onCurrencyChange} />
+      <div className="mt-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+        Payment Details
+      </div>
+      <div className="mt-3 flex flex-col gap-2.5 text-[13px]">
+        {breakdown.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-4 text-muted">
+            <span>{item.label}</span>
+            <span className="num font-semibold text-text">{item.amount}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
+        <span className="text-[13px] font-bold text-text">Total</span>
+        <span className="num text-[28px] font-bold leading-none text-text sm:text-[32px]">
+          {view.totalLabel}
+        </span>
+      </div>
+      <div className="mt-4">
+        <AlertInfo>
+          <LockIcon size={13} />
+          <span>Tip: payments are faster and cheaper through the Solana chain.</span>
+        </AlertInfo>
+      </div>
+    </section>
+  );
+}
 
 export function LoadingScreen() {
   return (
@@ -41,47 +116,59 @@ export function LoadingScreen() {
 }
 
 export function CheckoutScreen({
+  session,
   currency,
   onCurrencyChange,
   onPay,
   onBack,
 }: {
+  session: CheckoutSessionResponse;
   currency: DisplayCurrency;
   onCurrencyChange: (currency: DisplayCurrency) => void;
-  onPay?: () => void;
+  onPay?: (address?: string) => void;
   onBack?: () => void;
 }) {
+  const view = getSessionView(session, currency);
+
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <BackButton onClick={onBack} />
-
-      <MerchantCard />
-      <CurrencyToggle currency={currency} onChange={onCurrencyChange} />
-
-      <FieldRow label="Payment Total" amount>
-        <span>{payment.amounts[currency]}</span>
-        <span className="text-[12px] font-semibold text-muted">{currency}</span>
-      </FieldRow>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FieldRow label="Network" hint="Fast • Low fees">
-          <span>{payment.network}</span>
-          <SolanaStripeMark />
-        </FieldRow>
-        <FieldRow label="Wallet">
-          <span className="font-semibold text-muted">Not connected</span>
-          <span className="text-muted">
-            <ChevronRight />
-          </span>
-        </FieldRow>
+    <div className="flex flex-1 flex-col">
+      <div className="relative -mx-5 -mt-5 overflow-hidden rounded-b-[26px] px-5 pt-5 sm:-mx-6 sm:-mt-6 sm:rounded-t-card sm:px-6 sm:pt-6">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 18% 10%, rgba(255,255,255,0.24), transparent 28%), linear-gradient(135deg, #7C3AED 0%, #9945FF 48%, #B871FF 100%)",
+          }}
+        />
+        <div className="relative">
+          <BackButton
+            onClick={onBack}
+            className="text-white/85 hover:bg-white/12 hover:text-white"
+          />
+          <MerchantCard name={view.merchantName} address={view.merchantAddress} />
+        </div>
       </div>
 
-      <div className="mt-2 flex flex-col gap-2.5 pt-2">
-        <PrimaryButton onClick={onPay}>Connect Wallet</PrimaryButton>
-        <AlertInfo>
-          <LockIcon size={13} />
-          <span>Secure, instant payment on the Solana network.</span>
-        </AlertInfo>
+      <div className="relative z-10 -mt-10">
+        <PaymentBreakdown
+          session={session}
+          currency={currency}
+          onCurrencyChange={onCurrencyChange}
+        />
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 pt-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <FieldRow label="Network" hint="Fast • Low fees">
+            <span>{view.networkLabel}</span>
+            <SolanaStripeMark />
+          </FieldRow>
+          <BuyerWalletField />
+        </div>
+
+        <div className="mt-auto flex flex-col gap-2.5 pt-3">
+          <BuyerPaymentAction onPay={onPay} />
+        </div>
       </div>
     </div>
   );
@@ -93,12 +180,18 @@ export function WalletPendingScreen({ onBack }: { onBack?: () => void }) {
       <BackButton onClick={onBack} />
       <div className="flex flex-1 flex-col items-center justify-center gap-4 py-6">
         <div
-          className={`${stateIconBase} h-[120px] w-[120px] border border-border bg-surface text-purple`}
+          className={`${stateIconBase} h-[120px] w-[120px] text-white`}
+          style={{
+            background: "linear-gradient(135deg, #9945FF, #B871FF)",
+            boxShadow: "0 18px 36px -18px rgba(153,69,255,0.75)",
+          }}
         >
-          <WalletGlyph size={62} />
+          <div className="grid h-[82px] w-[82px] place-items-center rounded-[24px] bg-white/15 ring-1 ring-white/25">
+            <WalletGlyph size={54} />
+          </div>
         </div>
         <ScreenTitle>Waiting for wallet approval</ScreenTitle>
-        <ScreenSub className="px-4 max-w-[320px]">
+        <ScreenSub className="max-w-[320px] px-4">
           Complete the approval in your wallet app.
         </ScreenSub>
         <AlertInfo variant="muted">
@@ -129,67 +222,101 @@ export function ProcessingScreen({ onBack }: { onBack?: () => void }) {
         <div className="h-1.5 w-full max-w-[280px] overflow-hidden rounded-pill bg-bg">
           <div className="h-full progress-stripe rounded-pill" style={{ width: "75%" }} />
         </div>
-        <AlertInfo variant="muted">
-          <span>⚡ Usually takes only a few seconds</span>
-        </AlertInfo>
       </div>
     </div>
   );
 }
 
 export function SuccessScreen({
-  currency,
+  session,
+  currency = "USDC",
+  txSignature = buildMockTxSignature(),
   onDone,
 }: {
-  currency: DisplayCurrency;
+  session: CheckoutSessionResponse;
+  currency?: DisplayCurrency;
+  txSignature?: string;
   onDone?: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const view = getSessionView(session, currency);
+
+  const handleCopySignature = async () => {
+    await navigator.clipboard?.writeText(txSignature);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const handleOpenSolscan = () => {
+    window.open(`https://solscan.io/tx/${txSignature}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <div className="flex flex-1 flex-col items-center gap-3 py-2">
-      <div
-        className={`${stateIconBase} mt-3 h-[88px] w-[88px]`}
-        style={{
-          background: "linear-gradient(135deg, #14F195, #4ADE80)",
-          boxShadow: "0 12px 26px -8px rgba(20,241,149,0.5)",
-        }}
-      >
-        <CheckIcon size={40} strokeWidth={3} />
-      </div>
-      <ScreenTitle className="mt-1">Payment Successful!</ScreenTitle>
-      <div className="num text-[22px] font-bold" style={{ color: "var(--color-success)" }}>
-        {payment.amounts[currency]}
-      </div>
-
-      <div className="mt-2 flex w-full items-center gap-3 rounded-control border border-border bg-surface p-3">
-        <div className="grid h-9 w-9 place-items-center rounded-control bg-lavender text-base">
-          {merchant.emoji}
+    <div className="flex flex-1 flex-col py-3">
+      <div className="flex flex-1 flex-col justify-center gap-4">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <img
+            src="/checkout-icons/payment-success.png"
+            alt="Payment successful"
+            className="h-[112px] w-[112px] object-contain"
+          />
+          <ScreenTitle>Payment Successful!</ScreenTitle>
+          <div className="num text-[28px] font-bold leading-none" style={{ color: "var(--color-success)" }}>
+            {view.totalLabel}
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-bold text-text">{merchant.name}</div>
-          <div className="text-[11px] text-muted">Solana</div>
+
+        <div className="w-full rounded-card border border-border bg-surface px-4 py-4 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.45)]">
+          <div className="flex items-center gap-3 border-b border-border pb-3">
+            <div className="grid h-10 w-10 place-items-center rounded-control bg-lavender text-base">
+              ☕
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-bold text-text">{view.merchantName}</div>
+              <div className="text-[11px] text-muted">Paid on {view.networkLabel}</div>
+            </div>
+            <div className="shrink-0 rounded-pill bg-success-bg px-2 py-1 text-[10px] font-bold text-success">
+              Success
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2.5 text-[12px] text-muted">
+            <div className="flex items-center justify-between gap-4">
+              <span>Total paid</span>
+              <span className="num font-bold text-text">{view.totalLabel}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Date</span>
+              <span className="text-right font-semibold text-text">Just now</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Tx Signature</span>
+              <button
+                type="button"
+                onClick={handleCopySignature}
+                className="focus-ring num inline-flex min-w-0 max-w-[170px] items-center gap-1.5 rounded-[6px] font-semibold text-text hover:text-purple"
+                aria-label="Copy transaction signature"
+              >
+                <span className="truncate">{txSignature}</span>
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-bg text-muted">
+                  <CopyIcon size={10} />
+                </span>
+                <span className="sr-only">{copied ? "Copied" : "Copy"}</span>
+              </button>
+            </div>
+          </div>
+          {copied && (
+            <div className="mt-3 text-center text-[11px] font-semibold text-muted">
+              Signature copied.
+            </div>
+          )}
         </div>
-        <div className="shrink-0 text-right text-[11px] text-muted">{payment.date}</div>
       </div>
 
-      <div className="flex w-full items-center justify-between text-[12px] text-muted">
-        <span>Tx Signature</span>
-        <span className="num inline-flex items-center gap-1.5 font-semibold text-text">
-          {payment.txSignature}
-          <span className="grid h-5 w-5 place-items-center rounded bg-bg text-muted">
-            <CopyIcon size={10} />
-          </span>
-        </span>
+      <div className="mt-4 flex flex-col gap-2">
+        <PrimaryButton onClick={onDone}>Back to Merchant</PrimaryButton>
+        <SecondaryButton onClick={handleOpenSolscan}>View on Solscan</SecondaryButton>
       </div>
-
-      <PrimaryButton onClick={onDone} className="mt-3">
-        Back to Merchant
-      </PrimaryButton>
-      <button
-        type="button"
-        className="focus-ring text-[12px] font-semibold text-purple hover:underline"
-      >
-        View on Solscan ↗
-      </button>
     </div>
   );
 }
@@ -202,56 +329,73 @@ function CurrencyToggle({
   onChange: (currency: DisplayCurrency) => void;
 }) {
   return (
-    <div className="inline-grid grid-cols-2 rounded-[10px] border border-border bg-bg-soft p-1">
-      {currencies.map((item) => {
-        const active = item === currency;
-        return (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            className={`focus-ring rounded-[8px] px-3 py-2 text-[12px] font-bold transition-colors ${
-              active ? "bg-surface text-purple panel-shadow" : "text-muted hover:text-text"
-            }`}
-            aria-pressed={active}
-          >
-            {item}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedToggle
+      options={currencies.map((item) => ({ value: item, label: item }))}
+      value={currency}
+      onChange={onChange}
+      className="w-full"
+    />
   );
 }
 
 export function ErrorScreen({
+  reason = "Wallet approval was rejected",
+  session,
   onRetry,
   onBack,
 }: {
+  reason?: string;
+  session?: CheckoutSessionResponse | null;
   onRetry?: () => void;
   onBack?: () => void;
 }) {
+  const view = session ? getSessionView(session) : null;
+
   return (
-    <div className="flex flex-1 flex-col items-center gap-3 py-2">
-      <div
-        className={`${stateIconBase} mt-3 h-[88px] w-[88px]`}
-        style={{
-          background: "linear-gradient(135deg, #F87171, #EF4444)",
-          boxShadow: "0 12px 26px -8px rgba(239,68,68,0.45)",
-        }}
-      >
-        <CrossIcon size={36} />
-      </div>
-      <ScreenTitle className="mt-1">Payment Failed</ScreenTitle>
-      <ScreenSub className="px-2 max-w-[320px]">
-        Something went wrong while processing the payment. Please try again.
-      </ScreenSub>
+    <div className="flex flex-1 flex-col py-3">
+      <div className="flex flex-1 flex-col justify-center gap-4">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <img
+            src="/checkout-icons/payment-error.png"
+            alt="Payment failed"
+            className="h-[112px] w-[112px] object-contain"
+          />
+          <ScreenTitle>Payment Failed</ScreenTitle>
+          <ScreenSub className="max-w-[320px]">
+            Something went wrong while processing the payment. Please try again.
+          </ScreenSub>
+        </div>
 
-      <div className="w-full rounded-control border border-border bg-bg p-3">
-        <div className="text-[11px] text-muted">Reason</div>
-        <div className="mt-0.5 text-[13px] font-semibold text-text">{errorReason}</div>
+        <div className="w-full rounded-card border border-border bg-surface px-4 py-4 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.45)]">
+          <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                Reason
+              </div>
+              <div className="mt-1 text-[14px] font-bold text-text">{reason}</div>
+            </div>
+            <div className="shrink-0 rounded-pill bg-red-100 px-2 py-1 text-[10px] font-bold text-red-600">
+              Failed
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2.5 text-[12px] text-muted">
+            <div className="flex items-center justify-between gap-4">
+              <span>Merchant</span>
+              <span className="font-semibold text-text">{view?.merchantName ?? "Pulse Merchant"}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Total</span>
+              <span className="num font-bold text-text">{view?.totalLabel ?? "$0.00"}</span>
+            </div>
+            <div className="rounded-control border border-border bg-bg px-3 py-2 text-center text-[12px] font-semibold text-muted">
+              No funds were moved.
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex w-full flex-col gap-2 pt-2">
+      <div className="mt-4 flex w-full flex-col gap-2">
         <PrimaryButton onClick={onRetry}>Try Again</PrimaryButton>
         <SecondaryButton onClick={onBack}>Back to Merchant</SecondaryButton>
       </div>

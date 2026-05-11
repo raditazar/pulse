@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { BuyerPrivyProvider } from "@/components/checkout/PrivyProvider";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -34,7 +35,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${mono.variable}`}>
-      <body className="bg-bg text-text font-sans antialiased">{children}</body>
+      <body className="bg-bg text-text font-sans antialiased">
+        <BuyerPrivyProvider>{children}</BuyerPrivyProvider>
+      </body>
     </html>
   );
 }

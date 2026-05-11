@@ -1,17 +1,32 @@
-import { merchant } from "@/lib/mock-checkout";
-import { VerifiedBadge } from "./ui";
+import { CheckIcon } from "./icons";
 
-export function MerchantCard() {
+export function MerchantCard({
+  name,
+  address,
+  emoji = "☕",
+}: {
+  name: string;
+  address: string;
+  emoji?: string;
+}) {
   return (
-    <div className="rounded-card border border-border bg-surface px-4 py-4 text-center">
-      <div className="flex justify-center">
-        <VerifiedBadge />
+    <div className="px-4 pb-16 pt-5 text-center text-white sm:pb-[68px] sm:pt-6">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-white/18 text-2xl shadow-[0_12px_24px_-16px_rgba(15,23,42,0.55)] ring-1 ring-white/22 backdrop-blur">
+        {emoji}
       </div>
-      <div className="mx-auto mt-3 grid h-11 w-11 place-items-center rounded-control bg-lavender text-xl">
-        {merchant.emoji}
+      <div className="mt-3 inline-flex items-center justify-center gap-1.5 text-[18px] font-extrabold leading-tight">
+        <span>{name}</span>
+        <span
+          aria-label="Verified merchant"
+          className="grid h-5 w-5 place-items-center rounded-full bg-white text-purple"
+          style={{
+            boxShadow: "0 8px 18px -10px rgba(255,255,255,0.9)",
+          }}
+        >
+          <CheckIcon size={12} strokeWidth={3.4} />
+        </span>
       </div>
-      <div className="mt-2 text-[15px] font-bold text-text">{merchant.name}</div>
-      <div className="mt-0.5 text-[12px] text-muted">{merchant.address}</div>
+      <div className="mt-2 text-[12px] font-medium text-white/72">{address}</div>
     </div>
   );
 }

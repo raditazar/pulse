@@ -14,7 +14,27 @@ const lastColor: Record<NfcTileT["lastTapTone"], string> = {
   muted: "var(--color-muted)",
 };
 
-export function NfcTile({ tile }: { tile: NfcTileT }) {
+export function NfcTile({
+  tile,
+  onToggle,
+  onCopy,
+}: {
+  tile: NfcTileT;
+  onToggle?: () => void;
+  onCopy?: () => void;
+}) {
+  return <InteractiveNfcTile tile={tile} onToggle={onToggle} onCopy={onCopy} />;
+}
+
+export function InteractiveNfcTile({
+  tile,
+  onToggle,
+  onCopy,
+}: {
+  tile: NfcTileT;
+  onToggle?: () => void;
+  onCopy?: () => void;
+}) {
   const inactive = tile.status === "inactive";
   return (
     <div className="flex items-start gap-3 rounded-[12px] border border-border bg-surface p-2.5">
@@ -49,6 +69,28 @@ export function NfcTile({ tile }: { tile: NfcTileT }) {
           />
           {tile.lastTap}
         </div>
+        {(onToggle || onCopy) && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {onToggle && (
+              <button
+                type="button"
+                onClick={onToggle}
+                className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-text hover:text-purple"
+              >
+                {inactive ? "Activate" : "Disable"}
+              </button>
+            )}
+            {onCopy && (
+              <button
+                type="button"
+                onClick={onCopy}
+                className="focus-ring rounded-[7px] border border-border bg-bg-soft px-2 py-1 text-[9px] font-bold text-muted hover:text-text"
+              >
+                Copy ID
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

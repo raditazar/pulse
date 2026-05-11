@@ -1,15 +1,22 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/client";
+import { PrismaClient } from "@prisma/client";
+
+// Re-export types agar bisa dipakai di apps lain
+export type { Merchant, Session, Transaction } from "@prisma/client";
+export { Prisma, PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+import { Pool } from "pg";
+
 const connectionString =
   process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:5432/pulse?schema=public";
 
-const adapter = new PrismaPg({ connectionString });
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??

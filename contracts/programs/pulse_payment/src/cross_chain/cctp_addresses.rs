@@ -12,13 +12,13 @@ use anchor_lang::prelude::*;
 /// Source: <https://github.com/circlefin/solana-cctp-contracts/blob/main/programs/v2/Anchor.toml>
 pub mod message_transmitter_v2 {
     use super::*;
-    declare_id!("CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC");
+    pub const ID: Pubkey = pubkey!("CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC");
 }
 
 /// Circle CCTP V2 — TokenMessengerMinterV2 program.
 pub mod token_messenger_minter_v2 {
     use super::*;
-    declare_id!("CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe");
+    pub const ID: Pubkey = pubkey!("CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe");
 }
 
 /// USDC mint pada Solana Devnet.
@@ -26,7 +26,7 @@ pub mod token_messenger_minter_v2 {
 #[cfg(not(feature = "mainnet"))]
 pub mod usdc_mint {
     use super::*;
-    declare_id!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+    pub const ID: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 }
 
 /// USDC mint pada Solana Mainnet — SENGAJA tidak di-export di builds default.
@@ -35,7 +35,7 @@ pub mod usdc_mint {
 #[cfg(feature = "mainnet")]
 pub mod usdc_mint {
     use super::*;
-    declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    pub const ID: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
 
 /// CCTP domain IDs (testnet ↔ mainnet sama).

@@ -17,7 +17,7 @@
 //! 5. Off-chain relayer call `pulse_payment.cctp_hook_handler(hook_data, vault_authority_bump)`
 //!    dengan PaymentSession + Merchant + ATA accounts.
 //! 6. Handler decode hook_data, validate session+vault, panggil `internal_execute_split`,
-//!    set session.status = Settled, emit event.
+//!    set session.status = Paid, emit event.
 //!
 //! ## Mengapa SEPARATE instruction (bukan langsung CPI dari MessageTransmitter)?
 //! Recipient di CCTP V2 receive_message untuk USDC transfer adalah `token_messenger_minter_v2`
@@ -44,12 +44,9 @@ pub struct CctpHookHandler<'info> {
     #[account(mut)]
     pub completer: Signer<'info>,
 
-    /// Merchant PDA — di-validate via has_one ke kedua ATA destinasi di mock.
-    /// Untuk hackathon mock: kita tidak panggil has_one (karena Merchant baru sebatas mock).
-    /// Saat core-program merge, ganti ke `Account<'info, pulse_payment::core::Merchant>` plus
-    /// `has_one = merchant_usdc_ata` & `has_one = platform_usdc_ata`.
+    /// Merchant PDA sumber-of-truth untuk beneficiary split config.
     #[account(
-        seeds = [Merchant::SEED_PREFIX, merchant.owner.as_ref()],
+        seeds = [Merchant::SEED_PREFIX, merchant.authority.as_ref()],
         bump = merchant.bump,
     )]
     pub merchant: Account<'info, Merchant>,
@@ -89,33 +86,26 @@ pub struct CctpHookHandler<'info> {
     )]
     pub program_usdc_vault: Account<'info, TokenAccount>,
 
-    /// Merchant destination USDC ATA. Pre-create idempotent via init_if_needed.
+    /// Primary beneficiary destination ATA. Pre-create idempotent via init_if_needed.
     #[account(
         init_if_needed,
         payer = completer,
         associated_token::mint = usdc_mint,
-        associated_token::authority = merchant_owner,
+        associated_token::authority = primary_beneficiary,
     )]
-    pub merchant_usdc_ata: Account<'info, TokenAccount>,
+    pub primary_beneficiary_ata: Account<'info, TokenAccount>,
 
-    /// CHECK: hanya dipakai sebagai authority untuk merchant ATA derivation; identity-checked via merchant.owner.
-    #[account(address = merchant.owner)]
-    pub merchant_owner: UncheckedAccount<'info>,
-
-    /// Platform USDC ATA — pre-existing (di-set saat init Merchant).
-    #[account(
-        mut,
-        address = merchant.platform_usdc_ata @ CrossChainError::InvalidVaultAuthority,
-    )]
-    pub platform_usdc_ata: Account<'info, TokenAccount>,
+    /// CHECK: primary beneficiary pubkey disimpan di Merchant state.
+    #[account(address = merchant.primary_beneficiary)]
+    pub primary_beneficiary: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(
-    ctx: Context<CctpHookHandler>,
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, CctpHookHandler<'info>>,
     hook_data_raw: Vec<u8>,
     vault_authority_bump: u8,
 ) -> Result<()> {
@@ -144,32 +134,57 @@ pub fn handler(
         CrossChainError::VaultBalanceInsufficient
     );
 
-    // --- 5. Merchant ATA address sanity ---
+    // --- 5. Primary beneficiary ATA address sanity ---
     let expected_merchant_ata = associated_token::get_associated_token_address(
-        &ctx.accounts.merchant_owner.key(),
+        &ctx.accounts.primary_beneficiary.key(),
         &ctx.accounts.usdc_mint.key(),
     );
     require_keys_eq!(
-        ctx.accounts.merchant_usdc_ata.key(),
+        ctx.accounts.primary_beneficiary_ata.key(),
         expected_merchant_ata,
         CrossChainError::InvalidVaultAuthority
     );
 
+    require!(
+        ctx.remaining_accounts.len() == ctx.accounts.merchant.split_beneficiaries.len(),
+        CrossChainError::InvalidVaultAuthority
+    );
+
+    for (idx, split) in ctx.accounts.merchant.split_beneficiaries.iter().enumerate() {
+        let ata_info = &ctx.remaining_accounts[idx];
+        let expected = associated_token::get_associated_token_address(
+            &split.wallet,
+            &ctx.accounts.usdc_mint.key(),
+        );
+        require_keys_eq!(ata_info.key(), expected, CrossChainError::InvalidVaultAuthority);
+    }
+
     // --- 6. Execute split via shared helper ---
-    let (merchant_share, platform_share) = state::internal_execute_split(
+    let session_key = session.key();
+    let vault_seeds: &[&[u8]] = &[
+        VAULT_SEED_PREFIX,
+        session_key.as_ref(),
+        &[vault_authority_bump],
+    ];
+    let signer_seeds = &[vault_seeds];
+
+    let shares = state::internal_execute_split(
         &ctx.accounts.merchant,
         session,
         &ctx.accounts.program_usdc_vault,
         &ctx.accounts.vault_authority.to_account_info(),
-        &ctx.accounts.merchant_usdc_ata,
-        &ctx.accounts.platform_usdc_ata,
+        &ctx.accounts.primary_beneficiary_ata,
+        ctx.remaining_accounts,
         &ctx.accounts.token_program,
-        vault_authority_bump,
+        Some(signer_seeds),
     )?;
+    let primary_share = shares.first().copied().unwrap_or(0);
+    let secondary_share = shares.get(1).copied().unwrap_or(0);
 
     // --- 7. Mark session as settled + record source_chain ---
-    session.status = SessionStatus::Settled;
+    session.status = SessionStatus::Paid;
     session.source_chain = Some(hook.source_domain);
+    session.paid_by = None;
 
     // --- 8. Emit event ---
     emit!(CrossChainPaymentExecuted {
@@ -178,8 +193,8 @@ pub fn handler(
         source_domain: hook.source_domain,
         source_sender: hook.original_sender,
         amount_usdc: session.amount_usdc,
-        merchant_share,
-        platform_share,
+        primary_share,
+        secondary_share,
         timestamp: now,
     });
 

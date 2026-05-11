@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { FooterCard } from "@/components/dashboard/FooterCard";
-import { BoltSolidIcon, CheckIcon } from "@/components/dashboard/icons";
-import { DatePill, PageHeader } from "@/components/dashboard/PageHeader";
-import { CurrencyToggle, Panel, PanelHeading } from "@/components/dashboard/primitives";
+import { BoltSolidIcon, PulseSignalIcon, PulseStickerIcon } from "@/components/dashboard/icons";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { CurrencyToggle, Panel, PanelHeading, SelectDropdown } from "@/components/dashboard/primitives";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { TxTable } from "@/components/dashboard/TxTable";
 import { VolumeChart } from "@/components/dashboard/VolumeChart";
 import { greeting, networkStatus, statsByCurrency, transactions, type DisplayCurrency } from "@/lib/mock-data";
 
+const reportingDates = ["May 11, 2025", "May 10, 2025", "May 9, 2025"];
+
 export default function OverviewPage() {
   const [currency, setCurrency] = useState<DisplayCurrency>("USD");
+  const [date, setDate] = useState(greeting.date);
   const stats = statsByCurrency[currency];
 
   return (
@@ -22,7 +25,13 @@ export default function OverviewPage() {
         trailing={
           <div className="flex flex-wrap items-center gap-2">
             <CurrencyToggle currency={currency} onChange={setCurrency} />
-            <DatePill>{greeting.date}</DatePill>
+            <SelectDropdown
+              value={date}
+              onChange={setDate}
+              ariaLabel="Select reporting date"
+              options={reportingDates.map((item) => ({ value: item, label: item }))}
+              className="min-w-[150px]"
+            />
           </div>
         }
       />
@@ -36,7 +45,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
           <PanelHeading
-            title="Volume (Last 7 Days)"
+            title="Volume (Last 14 Days)"
             sub={`Total successful payments in ${currency}.`}
           />
           <VolumeChart currency={currency} />
@@ -47,30 +56,39 @@ export default function OverviewPage() {
             label="Status Network"
             value={networkStatus.network}
             hint={networkStatus.status}
-            icon={<CheckIcon size={14} />}
-            tone="green"
+            icon={<PulseSignalIcon size={20} />}
+            tone="mint"
           />
           <FooterCard
             label="Average Confirmation"
             value={networkStatus.avgConfirmation}
             hint={networkStatus.speedLabel}
             hintTone="muted"
-            icon={<BoltSolidIcon size={14} />}
-            tone="amber"
+            icon={<BoltSolidIcon size={17} />}
+            tone="pulse"
           />
           <FooterCard
-            label="Active Stickers"
-            value="3 / 4"
-            hint="1 awaiting assignment"
+            label="Cashier NFC"
+            value="1 / 1"
+            hint="Ready at counter"
             hintTone="muted"
-            icon={<CheckIcon size={14} />}
-            tone="green"
+            icon={<PulseStickerIcon size={18} />}
+            tone="violet"
           />
         </div>
       </div>
 
       <Panel>
-        <PanelHeading title="Latest Transactions" sub="Last 5 payments today." />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <PanelHeading title="Latest Transactions" sub="Last 5 payments today." />
+          <SelectDropdown
+            value={date}
+            onChange={setDate}
+            ariaLabel="Select transactions date"
+            options={reportingDates.map((item) => ({ value: item, label: item }))}
+            className="min-w-[150px]"
+          />
+        </div>
         <TxTable rows={transactions} currency={currency} />
       </Panel>
     </div>

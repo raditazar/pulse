@@ -3,20 +3,33 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { CurrencyToggle, Panel, PanelHeading } from "@/components/dashboard/primitives";
-import { TxFilters, TxTable } from "@/components/dashboard/TxTable";
+import { TxFilters, TxTable, type TxStatusFilter } from "@/components/dashboard/TxTable";
 import { transactions, type DisplayCurrency } from "@/lib/mock-data";
 
 export default function TransactionsPage() {
   const [currency, setCurrency] = useState<DisplayCurrency>("USD");
-  const total = transactions.length;
-  const success = transactions.filter((t) => t.status === "success").length;
-  const failed = transactions.filter((t) => t.status === "failed").length;
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<TxStatusFilter>("all");
+  const visibleTransactions = transactions.filter((transaction) => {
+    const matchesStatus = status === "all" || transaction.status === status;
+    const normalizedQuery = query.trim().toLowerCase();
+    const matchesQuery =
+      normalizedQuery.length === 0 ||
+      [transaction.merchant, transaction.wallet, transaction.amount[currency], transaction.status, transaction.time]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    return matchesStatus && matchesQuery;
+  });
+  const total = visibleTransactions.length;
+  const success = visibleTransactions.filter((t) => t.status === "success").length;
+  const failed = visibleTransactions.filter((t) => t.status === "failed").length;
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Transactions"
-        subtitle="On-chain payment history from all stickers."
+        subtitle="On-chain payment history from the cashier NFC."
       />
 
       <div className="grid grid-cols-3 gap-3">
@@ -30,8 +43,13 @@ export default function TransactionsPage() {
           <PanelHeading title="Latest Transactions" sub="Last 5 payments." />
           <CurrencyToggle currency={currency} onChange={setCurrency} />
         </div>
-        <TxFilters />
-        <TxTable rows={transactions} currency={currency} />
+        <TxFilters
+          query={query}
+          status={status}
+          onQueryChange={setQuery}
+          onStatusChange={setStatus}
+        />
+        <TxTable rows={visibleTransactions} currency={currency} />
       </Panel>
     </div>
   );

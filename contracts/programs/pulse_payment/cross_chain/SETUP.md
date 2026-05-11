@@ -189,7 +189,7 @@ ls target/deploy/pulse_payment.so   # harus ada, ~200-300 KB
 
 | Program | Address |
 |---|---|
-| `pulse_payment` (kita) | `Gh2NP3fBQfdARCkTerXx8vzgEY1yFhH5ApM8v79rj8d2` |
+| `pulse_payment` (kita) | `2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF` |
 | `pulse_lz_oapp` (Phase 2) | `AUdFnYGNTsKRvdCNyRRZcUVo7h8x2nf74e1RMYSF1Nm8` |
 | CCTP V2 `message_transmitter_v2` | `CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC` |
 | CCTP V2 `token_messenger_minter_v2` | `CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe` |

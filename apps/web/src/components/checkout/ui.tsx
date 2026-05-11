@@ -1,20 +1,16 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { ChevronLeft, CheckIcon } from "./icons";
+import { ChevronLeft, CheckIcon, PulseLogo } from "./icons";
 
 export function PulseLogoMark({ size = 64 }: { size?: number }) {
   return (
     <div
-      className="mx-auto grid place-items-center rounded-full font-extrabold text-white"
+      className="mx-auto grid place-items-center"
       style={{
         width: size,
         height: size,
-        fontSize: size * 0.5,
-        letterSpacing: "-0.04em",
-        background: "linear-gradient(135deg, #9945FF, #C77DFF 60%, #14F195 130%)",
-        boxShadow: "0 8px 20px -6px rgba(153,69,255,0.45)",
       }}
     >
-      P
+      <PulseLogo size={size} />
     </div>
   );
 }
@@ -61,13 +57,19 @@ export function SecondaryButton({
   );
 }
 
-export function BackButton({ onClick }: { onClick?: () => void }) {
+export function BackButton({
+  onClick,
+  className = "",
+}: {
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label="Back"
-      className="focus-ring -ml-2 mb-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-bg-soft"
+      className={`focus-ring -ml-2 mb-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-bg-soft ${className}`}
     >
       <ChevronLeft size={16} />
     </button>
@@ -110,7 +112,7 @@ export function AlertInfo({
   }
   return (
     <div
-      className="inline-flex w-full items-start gap-2 rounded-control px-3 py-2.5 text-[12px] leading-relaxed"
+      className="inline-flex w-full items-center gap-2 rounded-control px-3 py-2.5 text-[12px] leading-relaxed [&_svg]:shrink-0"
       style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", color: "#4338CA" }}
     >
       {children}

@@ -12,7 +12,7 @@ export function StatCard({
   accent?: "success";
 }) {
   return (
-    <div className="rounded-card border border-border bg-surface p-4 panel-shadow sm:p-5">
+    <div className="card-rise-in rounded-card border border-border bg-surface p-4 panel-shadow sm:p-5">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
         {label}
       </div>

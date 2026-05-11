@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createMerchant, createSession } from "@/lib/api";
+import { createSession } from "@/lib/api";
+import { useMerchant } from "@/components/dashboard/MerchantProvider";
 import { useMerchantWalletState } from "@/components/dashboard/MerchantWalletPanel";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
@@ -15,6 +16,7 @@ import {
 import { cashierNfc, createPaymentDefaults, type DisplayCurrency } from "@/lib/mock-data";
 
 export default function CreatePaymentPage() {
+  const { merchant } = useMerchant();
   const { wallet } = useMerchantWalletState();
   const [currency, setCurrency] = useState<DisplayCurrency>("USD");
   const [amounts, setAmounts] = useState(createPaymentDefaults.amount);
@@ -32,6 +34,12 @@ export default function CreatePaymentPage() {
   };
 
   const handleCreateSession = async () => {
+    if (!merchant) {
+      setStatusMessage("Merchant account not found. Please log in again.");
+      setConfirmOpen(false);
+      return;
+    }
+
     if (!wallet?.address) {
       setStatusMessage("Connect a merchant Solana wallet first.");
       setConfirmOpen(false);
@@ -41,16 +49,6 @@ export default function CreatePaymentPage() {
     setIsSubmitting(true);
     setStatusMessage(null);
     try {
-      const createdMerchant = await createMerchant({
-        authority: wallet.address,
-        primaryBeneficiary: wallet.address,
-        splitBasisPoints: 1000,
-        name: "Pulse Merchant",
-        metadataUri: `pulse://merchant/${wallet.address}`,
-        splitBeneficiaries: [],
-      });
-      const merchant = createdMerchant.merchant;
-
       const created = await createSession({
         merchantPda: merchant.merchantPda,
         amountUsdc: normalizeAmount(),

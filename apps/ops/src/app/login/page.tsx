@@ -8,8 +8,7 @@ import gsap from "gsap";
 import { SegmentedToggle } from "@pulse/ui";
 import { merchantPrivyAppId } from "@/components/dashboard/PrivyProvider";
 import { PulseLogoImage } from "@/components/dashboard/PulseLogoImage";
-import { createMerchant } from "@/lib/api";
-import { getStoredMerchant, storeMerchantForWallet } from "@/lib/merchant-access";
+import { createMerchant, getMerchantMe } from "@/lib/api";
 
 function GoogleIcon() {
   return (
@@ -52,7 +51,7 @@ type Tab = "login" | "register";
 
 export default function MerchantAuthPage() {
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user } = usePrivy();
   const { wallets, ready: walletsReady } = useSolanaWallets();
   const wallet = wallets[0];
   const pageTransitionRef = useRef<HTMLDivElement>(null);
@@ -86,19 +85,25 @@ export default function MerchantAuthPage() {
 
           setAuthStatusMessage("Creating your merchant account...");
           await createMerchant({
+            privyUserId: user!.id,
             authority: wallet.address,
+            email: email.trim() || undefined,
+            businessType: businessType || undefined,
             primaryBeneficiary: wallet.address,
             splitBasisPoints: 1000,
             name: merchantName.trim() || "Pulse Merchant",
             metadataUri: `pulse://merchant/${wallet.address}`,
             splitBeneficiaries: [],
-          }).then((created) => storeMerchantForWallet(wallet.address, created.merchant));
+          });
           if (!cancelled) router.replace("/dashboard");
           return;
         }
 
         setAuthStatusMessage("Checking your merchant account...");
-        const merchant = getStoredMerchant(wallet.address);
+        const merchant = await getMerchantMe({
+          privyUserId: user?.id,
+          wallet: wallet.address,
+        });
         if (cancelled) return;
 
         if (merchant) {
@@ -123,7 +128,7 @@ export default function MerchantAuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, authenticated, walletsReady, wallet?.address, merchantName, registerStep, router]);
+  }, [ready, authenticated, walletsReady, wallet?.address, user?.id, merchantName, email, businessType, registerStep, router]);
 
   useLayoutEffect(() => {
     const reduced =
@@ -289,7 +294,7 @@ export default function MerchantAuthPage() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-4 py-10">
       <div
         ref={pageTransitionRef}
-        className="fixed inset-0 z-50 bg-[#050506]"
+        className="pointer-events-none fixed inset-0 z-50 bg-[#050506]"
         style={{
           backgroundImage:
             "radial-gradient(circle at 18% 24%, rgba(255,255,255,0.26) 0 1px, transparent 1.5px), radial-gradient(circle at 72% 18%, rgba(255,255,255,0.2) 0 1px, transparent 1.5px), radial-gradient(circle at 36% 76%, rgba(255,255,255,0.18) 0 1px, transparent 1.5px), radial-gradient(circle at 84% 68%, rgba(255,255,255,0.24) 0 1px, transparent 1.5px)",

@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
-import { getStoredMerchant } from "@/lib/merchant-access";
+import { useMerchant } from "@/components/dashboard/MerchantProvider";
 import { CloseIcon, MenuIcon } from "./icons";
 import { PulseLogoImage } from "./PulseLogoImage";
 import { Sidebar } from "./Sidebar";
@@ -13,45 +13,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
   const { wallets, ready: walletsReady } = useSolanaWallets();
-  const wallet = wallets[0];
+  const { merchant, isLoading: merchantLoading } = useMerchant();
   const [accessState, setAccessState] = useState<"checking" | "allowed">("checking");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function verifyMerchantAccess() {
-      if (!ready) return;
-
-      if (!authenticated) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!walletsReady) return;
-
-      if (!wallet?.address) {
-        router.replace("/login");
-        return;
-      }
-
-      const merchant = getStoredMerchant(wallet.address);
-      if (cancelled) return;
-
-      if (merchant) {
-        setAccessState("allowed");
-      } else {
-        router.replace("/login");
-      }
-    }
-
-    verifyMerchantAccess();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, authenticated, walletsReady, wallet?.address, router]);
+    if (!ready) return;
+    if (!authenticated) { router.replace("/login"); return; }
+    if (!walletsReady) return;
+    if (merchantLoading) return;
+    if (!merchant) { router.replace("/login"); return; }
+    setAccessState("allowed");
+  }, [ready, authenticated, walletsReady, merchantLoading, merchant, router]);
 
   if (accessState === "checking") {
     return (

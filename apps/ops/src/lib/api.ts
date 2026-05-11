@@ -3,18 +3,44 @@ import type {
   CreateMerchantResponse,
   CreateSessionInput,
   CreateSessionResponse,
+  GetMerchantMeQuery,
   PulseMerchantRecord,
 } from "@pulse/types";
 
-const apiBase =
+const actionApiUrl =
   process.env.NEXT_PUBLIC_ACTION_API_URL ?? "http://localhost:8000/api";
+
+const apiBase = actionApiUrl.replace(/\/$/, "").endsWith("/api")
+  ? actionApiUrl.replace(/\/$/, "")
+  : `${actionApiUrl.replace(/\/$/, "")}/api`;
 
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error((body as { error?: string }).error ?? "API request failed");
+    const error = (body as { error?: unknown }).error;
+    const message =
+      typeof error === "string"
+        ? error
+        : error
+          ? JSON.stringify(error)
+          : `API request failed (${response.status})`;
+    throw new Error(`${message} [${response.status} ${response.url}]`);
   }
   return body as T;
+}
+
+export async function getMerchantMe(
+  query: GetMerchantMeQuery,
+): Promise<PulseMerchantRecord | null> {
+  const params = new URLSearchParams();
+  if (query.privyUserId) params.set("privyUserId", query.privyUserId);
+  if (query.wallet) params.set("wallet", query.wallet);
+  const response = await fetch(`${apiBase}/merchants/me?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (response.status === 404) return null;
+  const body = await parseJson<{ merchant: PulseMerchantRecord }>(response);
+  return body.merchant;
 }
 
 export async function getMerchantByRef(

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PulseLogo } from "@pulse/ui";
 import {
   ActivityIcon,
   HomeIcon,
@@ -11,13 +10,14 @@ import {
   SettingsIcon,
 } from "./icons";
 import { MerchantWalletPanel } from "./MerchantWalletPanel";
+import { PulseLogoImage } from "./PulseLogoImage";
 
 const NAV = [
-  { href: "/", label: "Overview", icon: HomeIcon },
-  { href: "/create-payment", label: "Create Payment", icon: PlusCircleIcon },
-  { href: "/nfc-stickers", label: "Cashier NFC", icon: NfcIcon },
-  { href: "/transactions", label: "Transactions", icon: ActivityIcon },
-  { href: "/settings", label: "Merchant Settings", icon: SettingsIcon },
+  { href: "/dashboard", label: "Overview", icon: HomeIcon },
+  { href: "/dashboard/create-payment", label: "Create Payment", icon: PlusCircleIcon },
+  { href: "/dashboard/nfc-stickers", label: "Cashier NFC", icon: NfcIcon },
+  { href: "/dashboard/transactions", label: "Transactions", icon: ActivityIcon },
+  { href: "/dashboard/settings", label: "Merchant Settings", icon: SettingsIcon },
 ];
 
 export function Sidebar({
@@ -40,7 +40,7 @@ export function Sidebar({
       }
     >
       <div className="mb-4 flex items-center gap-2 px-2 text-[14px] font-extrabold tracking-[0.06em] text-text">
-        <PulseLogo size={26} />
+        <PulseLogoImage size={26} />
         PULSE
       </div>
 

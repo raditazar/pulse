@@ -169,6 +169,54 @@ sessions.get("/:id/status", async (c) => {
   });
 });
 
+sessions.post("/:id/cancel", async (c) => {
+  const id = c.req.param("id");
+  const session = await prisma.session.findFirst({
+    where: {
+      OR: [
+        isUuid(id) ? { id } : undefined,
+        { sessionPda: id },
+        { sessionSeed: id },
+      ].filter(Boolean) as { id?: string; sessionPda?: string; sessionSeed?: string }[],
+    },
+    include: { merchant: true },
+  });
+
+  if (!session) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  if (session.status !== "pending" && session.status !== "submitted") {
+    return c.json({ error: `Session is ${session.status} and cannot be cancelled` }, 409);
+  }
+
+  const cancelled = await prisma.$transaction(async (tx) => {
+    const updated = await tx.session.update({
+      where: { id: session.id },
+      data: { status: "cancelled" },
+      include: { merchant: true },
+    });
+
+    if (session.terminalId) {
+      await tx.terminal.updateMany({
+        where: {
+          id: session.terminalId,
+          currentSessionId: session.id,
+        },
+        data: { currentSessionId: null },
+      });
+    }
+
+    return updated;
+  });
+
+  return c.json({
+    success: true,
+    sessionId: cancelled.id,
+    status: cancelled.status,
+  });
+});
+
 sessions.post("/:id/submit-signature", async (c) => {
   const id = c.req.param("id");
   const parsed = await parseJsonBody(c, submitSignatureSchema);

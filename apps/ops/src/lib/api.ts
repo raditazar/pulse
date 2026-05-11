@@ -5,6 +5,8 @@ import type {
   CreateSessionResponse,
   GetMerchantMeQuery,
   PulseMerchantRecord,
+  PulseSessionRecord,
+  SessionStatus,
 } from "@pulse/types";
 
 const actionApiUrl =
@@ -76,4 +78,201 @@ export async function createSession(
     body: JSON.stringify(payload),
   });
   return parseJson<CreateSessionResponse>(response);
+}
+
+export type MerchantSummary = {
+  totalVolumeUsdc: string;
+  totalTransactions: number;
+  successfulTransactions: number;
+  pendingSessions: number;
+  failedSessions: number;
+  activeTerminals: number;
+  date: string;
+};
+
+export type MerchantVolumePoint = {
+  date: string;
+  volumeUsdc: string;
+  transactions: number;
+};
+
+export type MerchantTerminal = {
+  id: string;
+  merchantId: string;
+  label: string;
+  nfcCode: string;
+  currentSessionId?: string | null;
+  tapUrl: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CreateTerminalInput = {
+  merchantId: string;
+  label: string;
+  nfcCode: string;
+};
+
+export type MerchantTransaction = {
+  id: string;
+  sessionId: string;
+  sessionPda: string;
+  txSignature: string;
+  payerAddress: string;
+  chain: string;
+  sourceChain: string;
+  sourceTxHash: string | null;
+  settlementChain: string;
+  amountUsdc: string | null;
+  splitBreakdown: unknown;
+  merchantAmountUsdcUnits: string;
+  platformAmountUsdcUnits: string;
+  tokenMint: string | null;
+  confirmedAt: string;
+  paidAt: string;
+  session: {
+    amountUsdc: string;
+    amountUsdcUnits: string;
+    createdAt: string;
+  };
+};
+
+export type CreateMerchantSessionInput = {
+  amountUsdc?: string;
+  amountUsdcUnits?: string;
+  sourceChain?: string;
+};
+
+export type CreateMerchantSessionResponse = {
+  sessionId: string;
+  terminal: MerchantTerminal;
+  amountUsdcUnits: string;
+  merchantAmountUsdcUnits: string;
+  platformAmountUsdcUnits: string;
+  platformFeeBps: number;
+  currency: "USDC";
+  sourceChain: string;
+  settlementChain: string;
+  tokenMint: string;
+  tokenDecimals: number;
+  status: SessionStatus;
+  expiresAt: string;
+  checkoutUrl: string;
+};
+
+export type UpdateMerchantInput = Partial<{
+  name: string;
+  metadataUri: string | null;
+  walletAddress: string;
+  usdcTokenAccount: string;
+  primaryBeneficiary: string;
+  platformFeeBps: number;
+  splitBasisPoints: number;
+  isActive: boolean;
+}>;
+
+export async function updateMerchant(
+  merchantRef: string,
+  payload: UpdateMerchantInput,
+): Promise<PulseMerchantRecord> {
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await parseJson<{ merchant: PulseMerchantRecord }>(response);
+  return body.merchant;
+}
+
+export async function getMerchantSummary(merchantRef: string): Promise<MerchantSummary> {
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/summary`, {
+    cache: "no-store",
+  });
+  const body = await parseJson<{ summary: MerchantSummary }>(response);
+  return body.summary;
+}
+
+export async function getMerchantVolume(
+  merchantRef: string,
+  days = 14,
+): Promise<MerchantVolumePoint[]> {
+  const params = new URLSearchParams({ days: String(days) });
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/volume?${params}`, {
+    cache: "no-store",
+  });
+  const body = await parseJson<{ points: MerchantVolumePoint[] }>(response);
+  return body.points;
+}
+
+export async function getMerchantSessions(
+  merchantRef: string,
+  limit = 20,
+): Promise<PulseSessionRecord[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/sessions?${params}`, {
+    cache: "no-store",
+  });
+  const body = await parseJson<{ sessions: PulseSessionRecord[] }>(response);
+  return body.sessions;
+}
+
+export async function createMerchantSession(
+  merchantRef: string,
+  payload: CreateMerchantSessionInput,
+): Promise<CreateMerchantSessionResponse> {
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<CreateMerchantSessionResponse>(response);
+}
+
+export async function cancelSession(sessionRef: string): Promise<{
+  success: true;
+  sessionId: string;
+  status: SessionStatus;
+}> {
+  const response = await fetch(`${apiBase}/sessions/${sessionRef}/cancel`, {
+    method: "POST",
+  });
+  return parseJson<{
+    success: true;
+    sessionId: string;
+    status: SessionStatus;
+  }>(response);
+}
+
+export async function getMerchantTerminals(
+  merchantRef: string,
+): Promise<MerchantTerminal[]> {
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/terminals`, {
+    cache: "no-store",
+  });
+  const body = await parseJson<{ terminals: MerchantTerminal[] }>(response);
+  return body.terminals;
+}
+
+export async function createTerminal(payload: CreateTerminalInput): Promise<MerchantTerminal> {
+  const response = await fetch(`${apiBase}/terminals`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<MerchantTerminal>(response);
+}
+
+export async function getMerchantTransactions(
+  merchantRef: string,
+  options: { limit?: number; offset?: number } = {},
+): Promise<MerchantTransaction[]> {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 20),
+    offset: String(options.offset ?? 0),
+  });
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/transactions?${params}`, {
+    cache: "no-store",
+  });
+  const body = await parseJson<{ transactions: MerchantTransaction[] }>(response);
+  return body.transactions;
 }

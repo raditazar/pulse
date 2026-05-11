@@ -9,231 +9,339 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 config({ path: path.resolve(__dirname, "../../../.env") });
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DIRECT_URL or DATABASE_URL is required");
-}
+if (!connectionString) throw new Error("DIRECT_URL or DATABASE_URL is required");
 
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+/* ── helpers ── */
 const now = new Date();
-const minutesFromNow = (minutes) => new Date(now.getTime() + minutes * 60 * 1000);
+const daysAgo = (d, offsetHours = 0) =>
+  new Date(now.getTime() - d * 86_400_000 + offsetHours * 3_600_000);
+const minutesFromNow = (m) => new Date(now.getTime() + m * 60_000);
 
-const merchants = [
+function split(units, feeBps) {
+  const platform = (units * BigInt(feeBps)) / 10_000n;
+  return { platformAmountUsdcUnits: platform, merchantAmountUsdcUnits: units - platform };
+}
+
+const USDC_MINT = process.env.USDC_MINT ?? "MockUsdcMint111111111111111111111111111111";
+
+/* ─────────────────────────────────────────────────────────────
+   MERCHANTS
+───────────────────────────────────────────────────────────── */
+const MERCHANTS = [
   {
-    merchantPda: "PulseMockMerchantKopi111111111111111111111111",
-    authority: "6x1vVJqV9Nn7T3Q5Yb8uJmYxJd8BvTnLz4hQ3mB2Kp9A",
-    primaryBeneficiary: "8yqSxN2gH5jV7mRb9Lk2pQwT4nYc6FzDa1Xe3Pu7HsA",
+    privyUserId: "privy-seed-merchant-001",
+    merchantPda: "PulseSeedKopiTepijalan11111111111111111111111",
+    authority:   "KopiAuthority1111111111111111111111111111111",
+    primaryBeneficiary: "KopiBenef11111111111111111111111111111111111",
     name: "Kopi Tepi Jalan",
-    walletAddress: "8yqSxN2gH5jV7mRb9Lk2pQwT4nYc6FzDa1Xe3Pu7HsA",
-    usdcTokenAccount: "KopiUsdcTokenAcct11111111111111111111111111",
+    email: "owner@kopitepijalan.id",
+    businessType: "F&B / Restaurant",
+    walletAddress: "KopiBenef11111111111111111111111111111111111",
+    usdcTokenAccount: "KopiUsdcAcct111111111111111111111111111111111",
     platformFeeBps: 125,
     splitBasisPoints: 1250,
-    splitBeneficiaries: [
-      { wallet: "CafeOpsWallet111111111111111111111111111111", bps: 1250, label: "ops" },
-    ],
+    splitBeneficiaries: [{ wallet: "KopiOps1111111111111111111111111111111111111", bps: 1250, label: "ops" }],
     metadataUri: "pulse://merchant/kopi-tepi-jalan",
   },
   {
-    merchantPda: "PulseMockMerchantBrightMart111111111111111111",
-    authority: "4KpGZUXW7pE7wqD8fL9rC2xT5vSaM6nBh3QyJ1Vt9RdP",
-    primaryBeneficiary: "9FqA2xMh8LrT6cYv4NpK7sJe3WdB1uGz5QnX8Pa2RmV",
+    privyUserId: "privy-seed-merchant-002",
+    merchantPda: "PulseSeedBrightmart1111111111111111111111111",
+    authority:   "BrightAuthority111111111111111111111111111111",
+    primaryBeneficiary: "BrightBenef1111111111111111111111111111111111",
     name: "BrightMart Express",
-    walletAddress: "9FqA2xMh8LrT6cYv4NpK7sJe3WdB1uGz5QnX8Pa2RmV",
-    usdcTokenAccount: "BrightUsdcTokenAcct111111111111111111111111",
+    email: "ops@brightmart.co",
+    businessType: "Retail",
+    walletAddress: "BrightBenef1111111111111111111111111111111111",
+    usdcTokenAccount: "BrightUsdcAcct11111111111111111111111111111111",
     platformFeeBps: 90,
     splitBasisPoints: 900,
-    splitBeneficiaries: [
-      { wallet: "BrightOpsWallet1111111111111111111111111111", bps: 900, label: "ops" },
-    ],
+    splitBeneficiaries: [{ wallet: "BrightOps111111111111111111111111111111111111", bps: 900, label: "ops" }],
     metadataUri: "pulse://merchant/brightmart-express",
   },
   {
-    merchantPda: "PulseMockMerchantYogaSenja111111111111111111",
-    authority: "7LdQ9hWz3Bv6YeR2cN8kTaP5mJx4SuF1GgV9pCb2HsL",
-    primaryBeneficiary: "5NnR8wPq2Kc7VxZ4jAa9MhT6sYd3LbF1QuE5Gz8WpC",
+    privyUserId: "privy-seed-merchant-003",
+    merchantPda: "PulseSeedYogaSenja111111111111111111111111111",
+    authority:   "YogaAuthority1111111111111111111111111111111",
+    primaryBeneficiary: "YogaBenef11111111111111111111111111111111111",
     name: "Studio Yoga Senja",
-    walletAddress: "5NnR8wPq2Kc7VxZ4jAa9MhT6sYd3LbF1QuE5Gz8WpC",
-    usdcTokenAccount: "YogaUsdcTokenAcct11111111111111111111111111",
+    email: "studio@yogasenja.id",
+    businessType: "Services",
+    walletAddress: "YogaBenef11111111111111111111111111111111111",
+    usdcTokenAccount: "YogaUsdcAcct111111111111111111111111111111111",
     platformFeeBps: 150,
     splitBasisPoints: 1500,
-    splitBeneficiaries: [
-      { wallet: "YogaOpsWallet111111111111111111111111111111", bps: 1500, label: "ops" },
-    ],
+    splitBeneficiaries: [{ wallet: "YogaOps1111111111111111111111111111111111111", bps: 1500, label: "ops" }],
     metadataUri: "pulse://merchant/studio-yoga-senja",
+  },
+  {
+    privyUserId: "privy-seed-merchant-004",
+    merchantPda: "PulseSeedPasarDigital1111111111111111111111111",
+    authority:   "PasarAuthority111111111111111111111111111111",
+    primaryBeneficiary: "PasarBenef11111111111111111111111111111111111",
+    name: "Pasar Digital Bazaar",
+    email: null,
+    businessType: "Market / Bazaar",
+    walletAddress: "PasarBenef11111111111111111111111111111111111",
+    usdcTokenAccount: "PasarUsdcAcct1111111111111111111111111111111",
+    platformFeeBps: 100,
+    splitBasisPoints: 1000,
+    splitBeneficiaries: [],
+    metadataUri: "pulse://merchant/pasar-digital",
+  },
+  {
+    privyUserId: "privy-seed-merchant-005",
+    merchantPda: "PulseSeedWarpKlothing11111111111111111111111",
+    authority:   "WarpAuthority1111111111111111111111111111111",
+    primaryBeneficiary: "WarpBenef11111111111111111111111111111111111",
+    name: "Warp Clothing Co.",
+    email: "hello@warpclothing.com",
+    businessType: "Online Store",
+    walletAddress: "WarpBenef11111111111111111111111111111111111",
+    usdcTokenAccount: "WarpUsdcAcct111111111111111111111111111111111",
+    platformFeeBps: 80,
+    splitBasisPoints: 800,
+    splitBeneficiaries: [
+      { wallet: "WarpDesign11111111111111111111111111111111111", bps: 400, label: "design" },
+      { wallet: "WarpOps111111111111111111111111111111111111111", bps: 400, label: "ops" },
+    ],
+    metadataUri: "pulse://merchant/warp-clothing",
   },
 ];
 
-const sessionFixtures = [
-  { key: "kopi-active", merchant: 0, terminal: 0, amount: "4.50", units: 4_500_000n, status: "pending", expires: 14 },
-  { key: "kopi-paid", merchant: 0, terminal: 1, amount: "8.25", units: 8_250_000n, status: "confirmed", expires: 30 },
-  { key: "mart-submitted", merchant: 1, terminal: 0, amount: "19.95", units: 19_950_000n, status: "submitted", expires: 8 },
-  { key: "mart-expired", merchant: 1, terminal: 1, amount: "3.20", units: 3_200_000n, status: "expired", expires: -20 },
-  { key: "yoga-cancelled", merchant: 2, terminal: 0, amount: "12.00", units: 12_000_000n, status: "cancelled", expires: 5 },
-  { key: "yoga-paid", merchant: 2, terminal: 1, amount: "25.00", units: 25_000_000n, status: "confirmed", expires: 45 },
+/* ─────────────────────────────────────────────────────────────
+   SESSIONS  (merchantIdx, terminalIdx, amount USDC, status, daysAgo, hoursOffset)
+   Statuses: pending|submitted|confirmed|paid|failed|expired|cancelled
+───────────────────────────────────────────────────────────── */
+const SESSION_FIXTURES = [
+  /* Kopi Tepi Jalan — small amounts, high frequency */
+  { key: "kopi-01", m: 0, t: 0, amt: "4.50",  units: 4_500_000n,  status: "confirmed", dAgo: 0,  hOff: -1 },
+  { key: "kopi-02", m: 0, t: 0, amt: "3.75",  units: 3_750_000n,  status: "confirmed", dAgo: 0,  hOff: -2 },
+  { key: "kopi-03", m: 0, t: 1, amt: "8.50",  units: 8_500_000n,  status: "confirmed", dAgo: 0,  hOff: -3 },
+  { key: "kopi-04", m: 0, t: 0, amt: "5.25",  units: 5_250_000n,  status: "confirmed", dAgo: 1,  hOff: -1 },
+  { key: "kopi-05", m: 0, t: 1, amt: "4.00",  units: 4_000_000n,  status: "confirmed", dAgo: 1,  hOff: -5 },
+  { key: "kopi-06", m: 0, t: 0, amt: "6.00",  units: 6_000_000n,  status: "confirmed", dAgo: 2,  hOff: -2 },
+  { key: "kopi-07", m: 0, t: 1, amt: "3.50",  units: 3_500_000n,  status: "confirmed", dAgo: 3,  hOff: -1 },
+  { key: "kopi-08", m: 0, t: 0, amt: "7.25",  units: 7_250_000n,  status: "confirmed", dAgo: 5,  hOff: -3 },
+  { key: "kopi-09", m: 0, t: 0, amt: "4.75",  units: 4_750_000n,  status: "confirmed", dAgo: 7,  hOff: -2 },
+  { key: "kopi-10", m: 0, t: 0, amt: "2.50",  units: 2_500_000n,  status: "failed",    dAgo: 8,  hOff: -1 },
+  { key: "kopi-11", m: 0, t: 1, amt: "5.00",  units: 5_000_000n,  status: "confirmed", dAgo: 10, hOff: -2 },
+  { key: "kopi-12", m: 0, t: 0, amt: "3.25",  units: 3_250_000n,  status: "confirmed", dAgo: 13, hOff: -4 },
+  { key: "kopi-active", m: 0, t: 0, amt: "4.50", units: 4_500_000n, status: "pending", dAgo: 0, hOff: 0, expires: 14 },
+
+  /* BrightMart — mid-size retail */
+  { key: "mart-01", m: 1, t: 0, amt: "19.95", units: 19_950_000n, status: "confirmed", dAgo: 0,  hOff: -2 },
+  { key: "mart-02", m: 1, t: 1, amt: "35.80", units: 35_800_000n, status: "confirmed", dAgo: 1,  hOff: -3 },
+  { key: "mart-03", m: 1, t: 0, amt: "12.50", units: 12_500_000n, status: "confirmed", dAgo: 2,  hOff: -1 },
+  { key: "mart-04", m: 1, t: 1, amt: "28.00", units: 28_000_000n, status: "confirmed", dAgo: 4,  hOff: -2 },
+  { key: "mart-05", m: 1, t: 0, amt: "9.99",  units: 9_990_000n,  status: "expired",   dAgo: 5,  hOff: -6 },
+  { key: "mart-06", m: 1, t: 0, amt: "44.50", units: 44_500_000n, status: "confirmed", dAgo: 6,  hOff: -2 },
+  { key: "mart-07", m: 1, t: 1, amt: "22.00", units: 22_000_000n, status: "confirmed", dAgo: 8,  hOff: -1 },
+  { key: "mart-08", m: 1, t: 0, amt: "15.75", units: 15_750_000n, status: "cancelled", dAgo: 9,  hOff: -3 },
+  { key: "mart-09", m: 1, t: 1, amt: "38.20", units: 38_200_000n, status: "confirmed", dAgo: 11, hOff: -2 },
+  { key: "mart-10", m: 1, t: 0, amt: "50.00", units: 50_000_000n, status: "confirmed", dAgo: 13, hOff: -1 },
+  { key: "mart-active", m: 1, t: 0, amt: "19.95", units: 19_950_000n, status: "submitted", dAgo: 0, hOff: 0, expires: 8 },
+
+  /* Studio Yoga Senja — larger amounts, membership style */
+  { key: "yoga-01", m: 2, t: 0, amt: "25.00", units: 25_000_000n, status: "confirmed", dAgo: 0,  hOff: -4 },
+  { key: "yoga-02", m: 2, t: 1, amt: "12.00", units: 12_000_000n, status: "confirmed", dAgo: 2,  hOff: -2 },
+  { key: "yoga-03", m: 2, t: 0, amt: "50.00", units: 50_000_000n, status: "confirmed", dAgo: 3,  hOff: -1 },
+  { key: "yoga-04", m: 2, t: 1, amt: "25.00", units: 25_000_000n, status: "confirmed", dAgo: 6,  hOff: -3 },
+  { key: "yoga-05", m: 2, t: 0, amt: "12.00", units: 12_000_000n, status: "confirmed", dAgo: 10, hOff: -2 },
+  { key: "yoga-06", m: 2, t: 1, amt: "75.00", units: 75_000_000n, status: "confirmed", dAgo: 12, hOff: -1 },
+  { key: "yoga-07", m: 2, t: 0, amt: "25.00", units: 25_000_000n, status: "cancelled", dAgo: 4,  hOff: -5 },
+  { key: "yoga-active", m: 2, t: 0, amt: "12.00", units: 12_000_000n, status: "pending", dAgo: 0, hOff: 0, expires: 12 },
+
+  /* Pasar Digital — irregular, varied amounts */
+  { key: "pasar-01", m: 3, t: 0, amt: "8.00",  units: 8_000_000n,  status: "confirmed", dAgo: 1,  hOff: -3 },
+  { key: "pasar-02", m: 3, t: 1, amt: "14.50", units: 14_500_000n, status: "confirmed", dAgo: 3,  hOff: -1 },
+  { key: "pasar-03", m: 3, t: 0, amt: "22.00", units: 22_000_000n, status: "confirmed", dAgo: 7,  hOff: -4 },
+  { key: "pasar-04", m: 3, t: 0, amt: "5.50",  units: 5_500_000n,  status: "failed",    dAgo: 9,  hOff: -2 },
+  { key: "pasar-05", m: 3, t: 1, amt: "30.00", units: 30_000_000n, status: "confirmed", dAgo: 11, hOff: -1 },
+  { key: "pasar-active", m: 3, t: 0, amt: "8.00", units: 8_000_000n, status: "pending", dAgo: 0, hOff: 0, expires: 13 },
+
+  /* Warp Clothing — larger orders, split beneficiaries */
+  { key: "warp-01", m: 4, t: 0, amt: "89.00", units: 89_000_000n, status: "confirmed", dAgo: 0,  hOff: -5 },
+  { key: "warp-02", m: 4, t: 1, amt: "45.50", units: 45_500_000n, status: "confirmed", dAgo: 2,  hOff: -2 },
+  { key: "warp-03", m: 4, t: 0, amt: "120.00",units: 120_000_000n,status: "confirmed", dAgo: 4,  hOff: -1 },
+  { key: "warp-04", m: 4, t: 0, amt: "67.00", units: 67_000_000n, status: "confirmed", dAgo: 6,  hOff: -3 },
+  { key: "warp-05", m: 4, t: 1, amt: "33.00", units: 33_000_000n, status: "expired",   dAgo: 8,  hOff: -7 },
+  { key: "warp-06", m: 4, t: 0, amt: "95.00", units: 95_000_000n, status: "confirmed", dAgo: 10, hOff: -2 },
+  { key: "warp-07", m: 4, t: 1, amt: "55.00", units: 55_000_000n, status: "confirmed", dAgo: 13, hOff: -4 },
+  { key: "warp-active", m: 4, t: 0, amt: "89.00", units: 89_000_000n, status: "pending", dAgo: 0, hOff: 0, expires: 15 },
 ];
 
-function split(units, feeBps) {
-  const platformAmountUsdcUnits = (units * BigInt(feeBps)) / 10_000n;
-  return {
-    platformAmountUsdcUnits,
-    merchantAmountUsdcUnits: units - platformAmountUsdcUnits,
-  };
-}
-
-const createdMerchants = [];
-const createdTerminals = [];
-const createdSessions = [];
-
+/* ─── run ── */
 try {
-  for (const merchant of merchants) {
+  /* 1 — merchants */
+  const createdMerchants = [];
+  for (const m of MERCHANTS) {
     createdMerchants.push(
       await prisma.merchant.upsert({
-        where: { merchantPda: merchant.merchantPda },
-        update: merchant,
-        create: merchant,
+        where: { privyUserId: m.privyUserId },
+        update: m,
+        create: m,
       })
     );
   }
+  console.log(`✓ ${createdMerchants.length} merchants`);
 
-  for (const [merchantIndex, merchant] of createdMerchants.entries()) {
-    const terminals = [
-      { label: "Cashier Counter", nfcCode: `NFC-${merchantIndex + 1}-COUNTER` },
-      { label: "Mobile POS", nfcCode: `NFC-${merchantIndex + 1}-MOBILE` },
+  /* 2 — terminals (2 per merchant) */
+  const terminalsByMerchant = [];
+  for (const [idx, merchant] of createdMerchants.entries()) {
+    const defs = [
+      { label: "Cashier Counter", nfcCode: `NFC-${idx + 1}-COUNTER` },
+      { label: "Mobile POS",      nfcCode: `NFC-${idx + 1}-MOBILE`  },
     ];
-
-    createdTerminals[merchantIndex] = [];
-    for (const terminal of terminals) {
-      createdTerminals[merchantIndex].push(
+    const row = [];
+    for (const t of defs) {
+      row.push(
         await prisma.terminal.upsert({
-          where: { nfcCode: terminal.nfcCode },
-          update: {
-            merchantId: merchant.id,
-            label: terminal.label,
-          },
-          create: {
-            merchantId: merchant.id,
-            label: terminal.label,
-            nfcCode: terminal.nfcCode,
-          },
+          where: { nfcCode: t.nfcCode },
+          update: { merchantId: merchant.id, label: t.label },
+          create: { merchantId: merchant.id, label: t.label, nfcCode: t.nfcCode },
         })
       );
     }
+    terminalsByMerchant.push(row);
   }
+  console.log(`✓ ${terminalsByMerchant.flat().length} terminals`);
 
-  for (const fixture of sessionFixtures) {
-    const merchant = createdMerchants[fixture.merchant];
-    const terminal = createdTerminals[fixture.merchant][fixture.terminal];
-    const { merchantAmountUsdcUnits, platformAmountUsdcUnits } = split(
-      fixture.units,
-      merchant.platformFeeBps
-    );
-    const confirmed = fixture.status === "confirmed";
-    const submitted = fixture.status === "submitted";
-    const txSignature = confirmed
-      ? `mock_tx_${fixture.key}_confirmed_111111111111111111111111111111111111`
-      : submitted
-        ? `mock_tx_${fixture.key}_submitted_111111111111111111111111111111111`
+  /* 3 — sessions */
+  const createdSessions = [];
+  for (const fx of SESSION_FIXTURES) {
+    const merchant  = createdMerchants[fx.m];
+    const terminal  = terminalsByMerchant[fx.m][fx.t];
+    const { merchantAmountUsdcUnits, platformAmountUsdcUnits } = split(fx.units, merchant.platformFeeBps);
+
+    const isConfirmed = fx.status === "confirmed" || fx.status === "paid";
+    const isSubmitted = fx.status === "submitted";
+    const hasTx = isConfirmed || isSubmitted;
+
+    const confirmedAt = isConfirmed ? daysAgo(fx.dAgo, fx.hOff) : null;
+    const submittedAt = hasTx       ? daysAgo(fx.dAgo, (fx.hOff ?? 0) + 0.1) : null;
+    const expiresAt   = fx.expires != null
+      ? minutesFromNow(fx.expires)
+      : daysAgo(fx.dAgo - 1);                // historical sessions are already expired by time
+
+    const txSignature = isConfirmed
+      ? `mock_tx_${fx.key}_confirmed_${merchant.id.slice(0, 8)}`.padEnd(88, "1")
+      : isSubmitted
+        ? `mock_tx_${fx.key}_submitted_${merchant.id.slice(0, 8)}`.padEnd(88, "1")
         : null;
 
+    const payerAddr = hasTx ? `Payer${fx.key}`.padEnd(44, "P") : null;
+
     const session = await prisma.session.upsert({
-      where: { sessionSeed: `seed-${fixture.key}` },
+      where: { sessionSeed: `seed-${fx.key}` },
       update: {
         merchantId: merchant.id,
         terminalId: terminal.id,
-        amountUsdc: new Prisma.Decimal(fixture.amount),
-        amountUsdcUnits: fixture.units,
+        amountUsdc: new Prisma.Decimal(fx.amt),
+        amountUsdcUnits: fx.units,
         merchantAmountUsdcUnits,
         platformAmountUsdcUnits,
         platformFeeBps: merchant.platformFeeBps,
-        status: fixture.status,
-        payerAddress: confirmed || submitted ? `Payer${fixture.key}111111111111111111111111111` : null,
-        paidBy: confirmed ? `Payer${fixture.key}111111111111111111111111111` : null,
+        status: fx.status,
+        payerAddress: payerAddr,
+        paidBy: isConfirmed ? payerAddr : null,
         txSignature,
-        expiresAt: minutesFromNow(fixture.expires),
-        submittedAt: submitted || confirmed ? minutesFromNow(-4) : null,
-        confirmedAt: confirmed ? minutesFromNow(-2) : null,
+        expiresAt,
+        submittedAt,
+        confirmedAt,
       },
       create: {
-        sessionPda: `mock-session-pda-${fixture.key}`,
-        sessionSeed: `seed-${fixture.key}`,
+        sessionPda:  `mock-pda-${fx.key}`.padEnd(44, "x"),
+        sessionSeed: `seed-${fx.key}`,
         merchantId: merchant.id,
         terminalId: terminal.id,
-        amountUsdc: new Prisma.Decimal(fixture.amount),
-        amountUsdcUnits: fixture.units,
+        amountUsdc: new Prisma.Decimal(fx.amt),
+        amountUsdcUnits: fx.units,
         merchantAmountUsdcUnits,
         platformAmountUsdcUnits,
         platformFeeBps: merchant.platformFeeBps,
         currency: "USDC",
         sourceChain: "solana",
         settlementChain: "solana",
-        tokenMint: process.env.USDC_MINT ?? "MockUsdcMint111111111111111111111111111111",
+        tokenMint: USDC_MINT,
         tokenDecimals: 6,
-        status: fixture.status,
-        payerAddress: confirmed || submitted ? `Payer${fixture.key}111111111111111111111111111` : null,
-        paidBy: confirmed ? `Payer${fixture.key}111111111111111111111111111` : null,
+        status: fx.status,
+        payerAddress: payerAddr,
+        paidBy: isConfirmed ? payerAddr : null,
         txSignature,
-        expiresAt: minutesFromNow(fixture.expires),
-        submittedAt: submitted || confirmed ? minutesFromNow(-4) : null,
-        confirmedAt: confirmed ? minutesFromNow(-2) : null,
+        expiresAt,
+        submittedAt,
+        confirmedAt,
       },
     });
 
-    createdSessions.push({ fixture, session, merchantAmountUsdcUnits, platformAmountUsdcUnits });
+    createdSessions.push({ fx, session, merchantAmountUsdcUnits, platformAmountUsdcUnits, confirmedAt, payerAddr });
   }
+  console.log(`✓ ${createdSessions.length} sessions`);
 
-  for (const { fixture, session, merchantAmountUsdcUnits, platformAmountUsdcUnits } of createdSessions) {
-    if (fixture.status !== "confirmed" || !session.txSignature) continue;
+  /* 4 — transactions (only confirmed sessions) */
+  let txCount = 0;
+  for (const { fx, session, merchantAmountUsdcUnits, platformAmountUsdcUnits, confirmedAt, payerAddr } of createdSessions) {
+    const isConfirmed = fx.status === "confirmed" || fx.status === "paid";
+    if (!isConfirmed || !session.txSignature) continue;
 
     await prisma.transaction.upsert({
       where: { txSignature: session.txSignature },
       update: {
-        payerAddress: session.payerAddress,
+        payerAddress: payerAddr,
         amountUsdc: session.amountUsdc,
         merchantAmountUsdcUnits,
         platformAmountUsdcUnits,
-        confirmedAt: session.confirmedAt ?? now,
-        paidAt: session.confirmedAt ?? now,
+        confirmedAt: confirmedAt ?? now,
+        paidAt: confirmedAt ?? now,
       },
       create: {
         sessionId: session.id,
         txSignature: session.txSignature,
-        payerAddress: session.payerAddress,
+        payerAddress: payerAddr,
         tokenMint: session.tokenMint,
-        chain: session.sourceChain,
-        sourceChain: session.sourceChain,
-        settlementChain: session.settlementChain,
+        chain: "solana",
+        sourceChain: "solana",
+        settlementChain: "solana",
         amountUsdc: session.amountUsdc,
         merchantAmountUsdcUnits,
         platformAmountUsdcUnits,
-        tokenDecimals: session.tokenDecimals,
+        tokenDecimals: 6,
         splitBreakdown: {
           merchant: merchantAmountUsdcUnits.toString(),
           platform: platformAmountUsdcUnits.toString(),
           feeBps: session.platformFeeBps,
         },
-        paidAt: session.confirmedAt ?? now,
-        confirmedAt: session.confirmedAt ?? now,
+        paidAt: confirmedAt ?? now,
+        confirmedAt: confirmedAt ?? now,
       },
     });
+    txCount++;
   }
+  console.log(`✓ ${txCount} transactions`);
 
-  for (const [merchantIndex, terminals] of createdTerminals.entries()) {
+  /* 5 — link active session to first terminal per merchant */
+  for (const [mIdx, terminals] of terminalsByMerchant.entries()) {
     const active = createdSessions.find(
-      ({ fixture }) => fixture.merchant === merchantIndex && fixture.status === "pending"
+      ({ fx }) => fx.m === mIdx && fx.status === "pending"
     );
     await prisma.terminal.update({
       where: { id: terminals[0].id },
       data: { currentSessionId: active?.session.id ?? null },
     });
   }
+  console.log("✓ terminal currentSessionId linked");
 
-  console.log(`Seeded ${createdMerchants.length} merchants`);
-  console.log(`Seeded ${createdTerminals.flat().length} terminals`);
-  console.log(`Seeded ${createdSessions.length} sessions`);
-  console.log("Seeded confirmed transactions for paid sessions");
+  /* summary */
+  console.log("\n— Seed complete —");
+  MERCHANTS.forEach((m, i) => {
+    const sessions = SESSION_FIXTURES.filter(f => f.m === i);
+    const confirmed = sessions.filter(s => s.status === "confirmed" || s.status === "paid").length;
+    console.log(`  ${m.name}: ${sessions.length} sessions, ${confirmed} transactions`);
+  });
 } finally {
   await prisma.$disconnect();
   await pool.end();

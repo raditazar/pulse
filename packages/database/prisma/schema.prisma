@@ -9,7 +9,10 @@ datasource db {
 model Merchant {
   id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   merchantPda        String     @unique @default(dbgenerated("gen_random_uuid()")) @map("merchant_pda")
-  authority          String     @default("")
+  privyUserId        String     @unique @map("privy_user_id")
+  authority          String     @unique @default("")
+  email              String?
+  businessType       String?    @map("business_type")
   primaryBeneficiary String     @default("") @map("primary_beneficiary")
   splitBasisPoints   Int        @default(1000) @map("split_basis_points")
   splitBeneficiaries Json       @default("[]") @map("split_beneficiaries")
@@ -57,6 +60,7 @@ model Session {
   merchant                Merchant      @relation(fields: [merchantId], references: [id])
   transactions            Transaction[]
 
+  @@index([merchantId])
   @@map("sessions")
 }
 
@@ -81,6 +85,7 @@ model Transaction {
 
   session                 Session  @relation(fields: [sessionId], references: [id])
 
+  @@index([sessionId])
   @@map("transactions")
 }
 
@@ -95,6 +100,7 @@ model Terminal {
 
   merchant         Merchant @relation(fields: [merchantId], references: [id])
 
+  @@index([merchantId])
   @@map("terminals")
 }
 

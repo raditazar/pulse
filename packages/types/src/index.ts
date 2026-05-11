@@ -2,8 +2,12 @@ export type SolanaCluster = "localnet" | "devnet" | "testnet" | "mainnet-beta";
 
 export type PulseSessionStatus =
   | "pending"
+  | "submitted"
+  | "confirmed"
   | "paid"
+  | "failed"
   | "expired"
+  | "cancelled"
   | "refunded"
   | "deactivated";
 
@@ -27,12 +31,18 @@ export type SplitBeneficiaryInput = {
 export type PulseMerchantRecord = {
   id: string;
   merchantPda: string;
+  privyUserId: string;
   authority: string;
+  email?: string | null;
+  businessType?: string | null;
   primaryBeneficiary: string;
   splitBasisPoints: number;
   splitBeneficiaries: SplitBeneficiaryInput[];
   metadataUri?: string | null;
   name?: string | null;
+  walletAddress: string;
+  usdcTokenAccount: string;
+  platformFeeBps: number;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -47,12 +57,20 @@ export type Merchant = {
 };
 
 export type CreateMerchantInput = {
+  privyUserId: string;
   authority: string;
+  email?: string;
+  businessType?: string;
   primaryBeneficiary: string;
   splitBasisPoints: number;
   name?: string;
   metadataUri?: string;
   splitBeneficiaries?: SplitBeneficiaryInput[];
+};
+
+export type GetMerchantMeQuery = {
+  privyUserId?: string;
+  wallet?: string;
 };
 
 export type CreateMerchantResponse = {

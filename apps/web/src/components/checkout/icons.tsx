@@ -1,4 +1,16 @@
-export { PulseLogo } from "@pulse/ui";
+export function PulseLogo({ size = 40 }: { size?: number }) {
+  return (
+    <img
+      src="/pulse-logo.png"
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      className="shrink-0 object-contain"
+      style={{ width: size, height: size }}
+    />
+  );
+}
 
 
 export function ChevronLeft({ size = 14 }: { size?: number }) {

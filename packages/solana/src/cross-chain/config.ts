@@ -65,12 +65,10 @@ export const CROSS_CHAIN_CONFIG = {
       ethSepolia: 40161,
     },
     /**
-     * LayerZero V2 Solana Devnet endpoint program ID. Saat ini PLACEHOLDER —
-     * fetch nilai resmi saat Phase 2 dari:
-     *   https://docs.layerzero.network/v2/deployments/chains/solana-testnet
-     * Setelah dapat alamatnya, replace `null` dengan `new PublicKey(...)`.
+     * LayerZero V2 Endpoint program ID — Solana Testnet (Devnet).
+     * Source: lz-devtools metadata solana-testnet.json (eid 40168, v2).
      */
-    endpointProgramId: null as PublicKey | null,
+    endpointProgramId: new PublicKey("76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6"),
   },
 } as const;
 

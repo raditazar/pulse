@@ -251,6 +251,6 @@ Range Pulse cross-chain: **6100–6199**. Lihat [`errors.rs`](../src/errors.rs) 
 ## 10. Open work / known gaps
 
 - **CCTP nonce verification on-chain**: saat ini `cctp_hook_handler` percaya pada vault balance + session_id match, tidak validasi used_nonces account. Nice-to-have: terima `used_nonces` account constraint dengan `owner = MessageTransmitterV2 program`.
-- **LayerZero Phase 2**: skeleton belum di-tulis (lihat task spec). Target: `init_oapp`, `set_peer`, `lz_receive`, `lz_receive_types`.
+- **LayerZero Phase 2**: ✅ scaffolded di crate terpisah `programs/pulse_lz_oapp/` (program ID `AUdFnYGNTsKRvdCNyRRZcUVo7h8x2nf74e1RMYSF1Nm8`). Lihat [`pulse_lz_oapp/README.md`](../../pulse_lz_oapp/README.md). Open: LZ V2 Endpoint Solana Devnet program ID belum di-plug-in, EVM-side OApp Solidity belum, ALT belum, E2E belum.
 - **Real `internal_execute_split` integration**: saat ini mock di `state/mock.rs`. Tunggu core-program owner expose helper. Signature sudah dikunci supaya tidak blocking.
 - **E2E test runner**: Phase 1.4 script di-skeleton kan saja — leg EVM (viem) belum dijalankan auto. Butuh user consent + funded wallet sebelum execute.

@@ -1,0 +1,21 @@
+[package]
+name = "pulse_lz_oapp"
+version = "0.1.0"
+edition = "2021"
+description = "Pulse Phase 2 — LayerZero V2 OApp untuk PaymentIntent pre-warm dari EVM testnet"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "pulse_lz_oapp"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["oapp/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+oapp = { package = "oapp-latest", git = "https://github.com/LayerZero-Labs/LayerZero-v2.git", rev = "c09287a" }

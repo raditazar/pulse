@@ -9,39 +9,51 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { type DisplayCurrency, volumeChart } from "@/lib/mock-data";
 
-const valueKey: Record<DisplayCurrency, "usd" | "sol"> = {
-  USD: "usd",
-  SOL: "sol",
+export type VolumeChartPoint = {
+  day: string;
+  usdc: number;
+  transactions?: number;
 };
 
-function formatValue(value: number, currency: DisplayCurrency) {
-  if (currency === "USD") {
-    return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-  }
-
+function formatValue(value: number) {
   return `${value.toLocaleString("en-US", {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
-  })} SOL`;
+  })} USDC`;
 }
 
-export function VolumeChart({ currency = "USD" }: { currency?: DisplayCurrency }) {
-  const key = valueKey[currency];
-  const values = volumeChart.points.map((point) => point[key]);
+function formatTick(value: number) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
+}
+
+export function VolumeChart({
+  points,
+}: {
+  points: VolumeChartPoint[];
+}) {
+  const chartPoints = points.length > 0 ? points : [{ day: "Today", usdc: 0 }];
+  const values = chartPoints.map((point) => point.usdc);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   const range = maxValue - minValue || 1;
   const domainPadding = range * 0.08;
   const ticks = [minValue, maxValue];
+  const chartAnimationKey = chartPoints.map((point) => `${point.day}:${point.usdc}`).join("|");
 
   return (
-    <div className="h-[280px] w-full">
+    <div className="relative min-h-[360px] w-full flex-1">
+      <div className="absolute left-3 top-1 z-10 text-[11px] font-bold uppercase tracking-wide text-muted">
+        USDC
+      </div>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={volumeChart.points}
-          margin={{ top: 18, right: 18, bottom: 12, left: 12 }}
+          key={chartAnimationKey}
+          data={chartPoints}
+          margin={{ top: 18, right: 18, bottom: 12, left: 8 }}
         >
           <defs>
             <linearGradient id="volume-fill" x1="0" x2="0" y1="0" y2="1">
@@ -62,8 +74,8 @@ export function VolumeChart({ currency = "USD" }: { currency?: DisplayCurrency }
           <YAxis
             axisLine={false}
             tickLine={false}
-            width={72}
-            tickFormatter={(value) => formatValue(Number(value), currency)}
+            width={58}
+            tickFormatter={(value) => formatTick(Number(value))}
             tick={{ fill: "#64748B", fontSize: 12, fontWeight: 600 }}
             domain={[minValue - domainPadding, maxValue + domainPadding]}
             ticks={ticks}
@@ -71,7 +83,7 @@ export function VolumeChart({ currency = "USD" }: { currency?: DisplayCurrency }
           />
           <Tooltip
             cursor={{ stroke: "#9945FF", strokeWidth: 1, strokeDasharray: "4 4" }}
-            formatter={(value) => [formatValue(Number(value), currency), "Volume"]}
+            formatter={(value) => [formatValue(Number(value)), "Volume"]}
             labelStyle={{ color: "#0F172A", fontWeight: 700 }}
             contentStyle={{
               border: "1px solid #E3EBF0",
@@ -82,10 +94,14 @@ export function VolumeChart({ currency = "USD" }: { currency?: DisplayCurrency }
           />
           <Area
             type="monotone"
-            dataKey={key}
+            dataKey="usdc"
             stroke="#9945FF"
             strokeWidth={3}
             fill="url(#volume-fill)"
+            isAnimationActive
+            animationBegin={120}
+            animationDuration={900}
+            animationEasing="ease-out"
             activeDot={{ r: 6, fill: "#9945FF", stroke: "#FFFFFF", strokeWidth: 2 }}
             dot={{ r: 4, fill: "#9945FF", stroke: "#FFFFFF", strokeWidth: 2 }}
           />

@@ -7,6 +7,7 @@ export function FooterCard({
   hintTone = "success",
   icon,
   tone = "pulse",
+  compact = false,
 }: {
   label: string;
   value: string;
@@ -14,6 +15,7 @@ export function FooterCard({
   hintTone?: "success" | "muted";
   icon: ReactNode;
   tone?: "pulse" | "mint" | "violet";
+  compact?: boolean;
 }) {
   const tones = {
     pulse: {
@@ -37,21 +39,27 @@ export function FooterCard({
   }[tone];
 
   return (
-    <div className="relative flex items-center justify-between overflow-hidden rounded-card border border-border bg-surface px-4 py-3.5 panel-shadow">
+    <div
+      className={`relative flex items-center justify-between overflow-hidden rounded-card border border-border bg-surface panel-shadow ${
+        compact ? "px-3 py-2.5" : "px-4 py-3.5"
+      }`}
+    >
       <div className="absolute inset-y-0 left-0 w-1" style={{ background: tones.rail }} />
       <div className="absolute inset-y-0 left-0 w-28" style={{ background: tones.wash }} />
       <div className="relative">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</div>
-        <div className="mt-1 text-[15px] font-bold text-text">{value}</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-[11px]">{label}</div>
+        <div className={`${compact ? "mt-0.5 text-[13px]" : "mt-1 text-[15px]"} font-bold text-text`}>{value}</div>
         <div
-          className="mt-0.5 text-[11px] font-bold"
+          className={`${compact ? "mt-0 text-[10px]" : "mt-0.5 text-[11px]"} font-bold`}
           style={{ color: hintTone === "success" ? "var(--color-success)" : "var(--color-muted)" }}
         >
           {hint}
         </div>
       </div>
       <div
-        className="relative grid h-10 w-10 place-items-center rounded-[12px]"
+        className={`relative grid place-items-center rounded-[12px] ${
+          compact ? "h-8 w-8" : "h-10 w-10"
+        }`}
         style={{
           background: tones.iconBg,
           color: tones.iconColor,

@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { SegmentedToggle } from "@pulse/ui";
-import { currencies, type DisplayCurrency } from "@/lib/mock-data";
 import { ChevronDown } from "./icons";
 
 export function Panel({
@@ -209,22 +207,5 @@ export function ReadonlyInput({
       <span className={`min-w-0 flex-1 ${contentClassName}`}>{children}</span>
       {trailing && <span className="shrink-0">{trailing}</span>}
     </div>
-  );
-}
-
-export function CurrencyToggle({
-  currency,
-  onChange,
-}: {
-  currency: DisplayCurrency;
-  onChange: (currency: DisplayCurrency) => void;
-}) {
-  return (
-    <SegmentedToggle
-      options={currencies.map((item) => ({ value: item }))}
-      value={currency}
-      onChange={onChange}
-      size="sm"
-    />
   );
 }

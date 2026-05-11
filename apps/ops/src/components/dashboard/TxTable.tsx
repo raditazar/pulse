@@ -1,23 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import type { DisplayCurrency, Transaction } from "@/lib/mock-data";
 import { ChevronDown, SearchIcon } from "./icons";
 import { ChipVariant, SelectDropdown } from "./primitives";
 
-const statusVariant: Record<Transaction["status"], "success" | "error" | "pending"> = {
+export type DashboardTxStatus = "success" | "failed" | "pending";
+
+export type DashboardTransaction = {
+  id: string;
+  time: string;
+  merchant: string;
+  amount: string;
+  status: DashboardTxStatus;
+  wallet: string;
+};
+
+const statusVariant: Record<DashboardTxStatus, "success" | "error" | "pending"> = {
   success: "success",
   failed: "error",
   pending: "pending",
 };
 
-const statusLabel: Record<Transaction["status"], string> = {
+const statusLabel: Record<DashboardTxStatus, string> = {
   success: "Successful",
   failed: "Failed",
   pending: "Pending",
 };
 
-export type TxStatusFilter = "all" | Transaction["status"];
+export type TxStatusFilter = "all" | DashboardTxStatus;
 
 export function TxFilters({
   query,
@@ -83,10 +93,8 @@ export function TxFilters({
 
 export function TxTable({
   rows,
-  currency = "USD",
 }: {
-  rows: Transaction[];
-  currency?: DisplayCurrency;
+  rows: DashboardTransaction[];
 }) {
   const handleCopyWallet = async (wallet: string) => {
     if (wallet === "—") return;
@@ -106,12 +114,12 @@ export function TxTable({
         {rows.length > 0 ? (
           rows.map((r) => (
             <div
-              key={r.time + r.wallet}
+              key={r.id}
               className="grid grid-cols-[0.8fr_1fr_1fr_0.9fr_1.1fr] items-center gap-2 border-b border-border py-2.5 text-[11px] last:border-b-0"
             >
               <div className="num text-muted">{r.time}</div>
               <div className="text-[10px] font-bold text-text">{r.merchant}</div>
-              <div className="text-[11px] font-bold text-text">{r.amount[currency]}</div>
+              <div className="text-[11px] font-bold text-text">{r.amount}</div>
               <div>
                 <ChipVariant variant={statusVariant[r.status]}>{statusLabel[r.status]}</ChipVariant>
               </div>

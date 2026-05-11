@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MerchantReceivingWalletField } from "@/components/dashboard/MerchantWalletField";
 import { MerchantWalletPanel } from "@/components/dashboard/MerchantWalletPanel";
+import { useMerchant } from "@/components/dashboard/MerchantProvider";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   CtaButton,
@@ -11,7 +12,8 @@ import {
   PanelHeading,
   SelectDropdown,
 } from "@/components/dashboard/primitives";
-import { merchant } from "@/lib/mock-data";
+import { updateMerchant } from "@/lib/api";
+import { shortAddress } from "@/lib/dashboard-data";
 
 const timezones = [
   "Asia/Jakarta (GMT+7)",
@@ -34,14 +36,43 @@ const timezones = [
 ];
 
 export default function SettingsPage() {
-  const [merchantName, setMerchantName] = useState(merchant.name);
-  const [location, setLocation] = useState(merchant.location);
-  const [timezone, setTimezone] = useState(merchant.timezone);
+  const { merchant, refetch } = useMerchant();
+  const [merchantName, setMerchantName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [timezone, setTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Jakarta"
+      ? "Asia/Jakarta (GMT+7)"
+      : "UTC",
+  );
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState("No unsaved changes.");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    setSaveStatus(`Saved ${merchantName} settings for ${timezone}.`);
+  useEffect(() => {
+    if (!merchant) return;
+    setMerchantName(merchant.name ?? "Pulse Merchant");
+    setBusinessType(merchant.businessType ?? "");
+    setSaveStatus("No unsaved changes.");
+  }, [merchant]);
+
+  const handleSave = async () => {
+    if (!merchant) {
+      setSaveStatus("Merchant account not found. Please log in again.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateMerchant(merchant.id, {
+        name: merchantName.trim() || "Pulse Merchant",
+      });
+      refetch();
+      setSaveStatus(`Saved ${merchantName || "Pulse Merchant"} settings.`);
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "Failed to save settings.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleProfilePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +102,7 @@ export default function SettingsPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={profilePhoto}
-                      alt={`${merchantName} profile`}
+                      alt={`${merchantName || "Merchant"} profile`}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -132,19 +163,32 @@ export default function SettingsPage() {
 
             <div className="sm:col-span-2">
               <FieldLabel>Receiving Wallet (Solana)</FieldLabel>
-              <MerchantReceivingWalletField fallback={merchant.wallet} />
+              <MerchantReceivingWalletField
+                fallback={merchant?.primaryBeneficiary ?? merchant?.walletAddress ?? "-"}
+              />
             </div>
 
             <div className="sm:col-span-2">
-              <FieldLabel>Location</FieldLabel>
+              <FieldLabel>Business Type</FieldLabel>
               <input
-                value={location}
+                value={businessType}
                 onChange={(event) => {
-                  setLocation(event.target.value);
+                  setBusinessType(event.target.value);
                   setSaveStatus("Unsaved changes.");
                 }}
                 className="w-full rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text outline-none focus:border-purple"
-                aria-label="Merchant location"
+                aria-label="Merchant business type"
+                disabled
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Merchant PDA</FieldLabel>
+              <input
+                value={shortAddress(merchant?.merchantPda)}
+                readOnly
+                className="w-full rounded-[10px] border border-border bg-bg px-3 py-2.5 text-[12px] font-semibold text-text outline-none"
+                aria-label="Merchant PDA"
               />
             </div>
 
@@ -164,8 +208,8 @@ export default function SettingsPage() {
 
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-[12px] font-semibold text-muted">{saveStatus}</div>
-            <CtaButton className="sm:max-w-[220px]" onClick={handleSave}>
-              Save Changes
+            <CtaButton className="sm:max-w-[220px]" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
             </CtaButton>
           </div>
         </Panel>

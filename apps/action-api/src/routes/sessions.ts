@@ -43,6 +43,10 @@ type SessionWithMerchant = NonNullable<
   Awaited<ReturnType<typeof prisma.session.findFirst<{ include: { merchant: true } }>>>
 >;
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function serializeSession(session: SessionWithMerchant) {
   return {
     sessionId: session.id,
@@ -201,7 +205,11 @@ sessions.get("/:id", async (c) => {
   const id = c.req.param("id");
   const session = await prisma.session.findFirst({
     where: {
-      OR: [{ id }, { sessionPda: id }, { sessionSeed: id }],
+      OR: [
+        isUuid(id) ? { id } : undefined,
+        { sessionPda: id },
+        { sessionSeed: id },
+      ].filter(Boolean) as { id?: string; sessionPda?: string; sessionSeed?: string }[],
     },
     include: { merchant: true },
   });

@@ -35,6 +35,7 @@ export default function CheckoutSessionPage({
   const [sessionId, setSessionId] = useState<string>("");
   const [errorReason, setErrorReason] = useState("Unable to load checkout session");
   const [txSignature, setTxSignature] = useState<string>("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     params.then((resolved) => setSessionId(resolved.sessionId));
@@ -42,16 +43,32 @@ export default function CheckoutSessionPage({
 
   useEffect(() => {
     if (!sessionId) return;
+    setPhase("loading");
+    setErrorReason("Unable to load checkout session");
     fetchCheckoutSession(sessionId)
       .then((payload) => {
         setSession(payload);
-        setPhase(payload.session.status === "paid" ? "success" : "checkout");
+        if (payload.session.status === "paid") {
+          setPhase("success");
+          return;
+        }
+        if (
+          payload.session.status === "expired" ||
+          payload.session.status === "cancelled" ||
+          payload.session.status === "failed" ||
+          payload.session.status === "deactivated"
+        ) {
+          setErrorReason(`Payment session is ${payload.session.status}.`);
+          setPhase("error");
+          return;
+        }
+        setPhase("checkout");
       })
       .catch((error: Error) => {
         setErrorReason(error.message);
         setPhase("error");
       });
-  }, [sessionId]);
+  }, [sessionId, loadAttempt]);
 
   const resolvedSession = useMemo(() => session, [session]);
 
@@ -112,7 +129,13 @@ export default function CheckoutSessionPage({
           <ErrorScreen
             reason={errorReason}
             session={resolvedSession}
-            onRetry={() => setPhase(resolvedSession ? "checkout" : "loading")}
+            onRetry={() => {
+              if (resolvedSession) {
+                setPhase("checkout");
+                return;
+              }
+              setLoadAttempt((current) => current + 1);
+            }}
             onBack={() => router.push("/")}
           />
         )}

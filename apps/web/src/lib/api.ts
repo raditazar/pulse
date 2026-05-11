@@ -4,8 +4,12 @@ import type {
   RecordTransactionResponse,
 } from "@pulse/types";
 
-const apiBase =
+const actionApiUrl =
   process.env.NEXT_PUBLIC_ACTION_API_URL ?? "http://localhost:8000/api";
+
+const apiBase = actionApiUrl.replace(/\/$/, "").endsWith("/api")
+  ? actionApiUrl.replace(/\/$/, "")
+  : `${actionApiUrl.replace(/\/$/, "")}/api`;
 
 export async function fetchCheckoutSession(
   sessionRef: string,
@@ -16,7 +20,14 @@ export async function fetchCheckoutSession(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? "Failed to load checkout session");
+    const error = (body as { error?: unknown }).error;
+    const message =
+      typeof error === "string"
+        ? error
+        : error
+          ? JSON.stringify(error)
+          : `Failed to load checkout session (${response.status})`;
+    throw new Error(`${message} [${response.status} ${response.url}]`);
   }
 
   return response.json();
@@ -33,7 +44,14 @@ export async function recordCheckoutTransaction(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? "Failed to record transaction");
+    const error = (body as { error?: unknown }).error;
+    const message =
+      typeof error === "string"
+        ? error
+        : error
+          ? JSON.stringify(error)
+          : `Failed to record transaction (${response.status})`;
+    throw new Error(`${message} [${response.status} ${response.url}]`);
   }
 
   return response.json();

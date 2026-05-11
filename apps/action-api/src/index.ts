@@ -5,6 +5,8 @@ import {cors} from "hono/cors"
 import { sessions } from "./routes/sessions";
 import { transactions } from "./routes/transactions";
 import { merchants } from "./routes/merchants";
+import { terminals } from "./routes/terminals";
+import { tap } from "./routes/tap";
 
 const app = new Hono();
 
@@ -23,6 +25,8 @@ api.get("/", (c) =>
 api.route("/sessions", sessions)
 api.route("/transactions", transactions)
 api.route("/merchants", merchants)
+api.route("/terminals", terminals)
+api.route("/tap", tap)
 
 const PORT = Number(process.env.PORT ?? 8000);
 

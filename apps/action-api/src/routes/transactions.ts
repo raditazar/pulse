@@ -1,62 +1,72 @@
-import {Hono} from "hono"
-import {prisma} from "@pulse/database"
+import { prisma } from "@pulse/database";
+import { Hono } from "hono";
+import { z } from "zod";
+import { bigintToString, parseJsonBody } from "../lib/http";
+import { verifySmartContractPayment } from "../services/payment-verifier";
 
-const transactions = new Hono()
+const transactions = new Hono();
 
-// ENDPOINT 1: POST /transactions (Record Transaction)
+const submitTransactionSchema = z.object({
+  sessionId: z.string().uuid(),
+  txSignature: z.string().min(64),
+  payerAddress: z.string().min(32),
+  sourceChain: z.string().min(2).optional(),
+  sourceTxHash: z.string().min(10).optional(),
+});
+
 transactions.post("/", async (c) => {
-    const body = await c.req.json()
-    
-    const {
-        sessionId, 
-        txSignature,
-        payerAddress,
-        merchantAmount,
-        splitAmount,
-        tokenMint,
-        chain,
-    } = body
+  const parsed = await parseJsonBody(c, submitTransactionSchema);
+  if (parsed instanceof Response) return parsed;
 
-    // Validation
-    if(!sessionId || !txSignature || !payerAddress || !merchantAmount || !splitAmount){
-        return c.json({error: "Field required: sessionId, txSignature, payerAddress, merchantAmount, splitAmount"}, 400)
-    }
-    const session = await prisma.session.findUnique({
-        where: {id: sessionId},
-    })
+  const result = await verifySmartContractPayment(parsed);
 
-    if(!session){
-        return c.json({error: "Session not found"}, 404)
-    }
-
-    if(session.status === "success"){
-        return c.json({error: "Session already paid"}, 400)
-    }
-
-    // Save transaction and update session status
-    const [transaction] = await prisma.$transaction([
-        prisma.transaction.create({
-            data: {
-                sessionId,
-                txSignature,
-                payerAddress,
-                merchantAmount,
-                splitAmount,
-                tokenMint: tokenMint ?? null,
-                chain: chain ?? "solana",
-            },
-        }),
-        prisma.session.update({
-            where: {id: sessionId},
-            data: {status: "success"}
-        })
-    ])
-
-    return c.json({
+  if (result.status === "confirmed") {
+    return c.json(
+      {
         success: true,
-        transactionId: transaction.id,
-        txSignature: transaction.txSignature,
-    }, 201)
-})
+        status: result.status,
+        txSignature: result.txSignature,
+      },
+      201
+    );
+  }
 
-export {transactions}
+  return c.json(
+    {
+      success: false,
+      status: result.status,
+      message: result.reason,
+    },
+    result.status === "submitted" ? 202 : 400
+  );
+});
+
+transactions.get("/:signature", async (c) => {
+  const txSignature = c.req.param("signature");
+  const transaction = await prisma.transaction.findUnique({
+    where: { txSignature },
+    include: { session: true },
+  });
+
+  if (!transaction) {
+    return c.json({ error: "Transaction not found" }, 404);
+  }
+
+  return c.json({
+    id: transaction.id,
+    sessionId: transaction.sessionId,
+    txSignature: transaction.txSignature,
+    payerAddress: transaction.payerAddress,
+    sourceChain: transaction.sourceChain,
+    sourceTxHash: transaction.sourceTxHash,
+    settlementChain: transaction.settlementChain,
+    merchantAmountUsdcUnits: bigintToString(transaction.merchantAmountUsdcUnits),
+    platformAmountUsdcUnits: bigintToString(transaction.platformAmountUsdcUnits),
+    tokenMint: transaction.tokenMint,
+    tokenDecimals: transaction.tokenDecimals,
+    confirmedAt: transaction.confirmedAt.toISOString(),
+    createdAt: transaction.createdAt.toISOString(),
+  });
+});
+
+export { transactions };

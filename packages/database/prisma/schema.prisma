@@ -7,39 +7,85 @@ datasource db {
 }
 
 model Merchant {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  walletAddress String    @map("wallet_address")
-  splitAddress  String?   @map("split_address")
-  splitPercent  Int       @default(10) @map("split_percent") // % ke platform/lokasi, sisanya ke merchant
-  sessions      Session[]
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  walletAddress    String     @map("wallet_address")
+  usdcTokenAccount String     @map("usdc_token_account")
+  platformFeeBps   Int        @default(100) @map("platform_fee_bps")
+  sessions         Session[]
+  terminals        Terminal[]
 
   @@map("merchants")
 }
 
 model Session {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  merchantId   String?       @map("merchant_id") @db.Uuid
-  amount       Decimal       @db.Decimal
-  status       String?       @default("pending")
-  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
-  merchant     Merchant?     @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  transactions Transaction[]
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId              String        @map("merchant_id") @db.Uuid
+  terminalId              String?       @map("terminal_id") @db.Uuid
+  amountUsdcUnits         BigInt        @map("amount_usdc_units")
+  merchantAmountUsdcUnits BigInt        @map("merchant_amount_usdc_units")
+  platformAmountUsdcUnits BigInt        @map("platform_amount_usdc_units")
+  platformFeeBps          Int           @map("platform_fee_bps")
+  currency                String        @default("USDC")
+  sourceChain             String        @default("solana") @map("source_chain")
+  settlementChain         String        @default("solana") @map("settlement_chain")
+  tokenMint               String        @map("token_mint")
+  tokenDecimals           Int           @default(6) @map("token_decimals")
+  status                  SessionStatus @default(pending)
+  payerAddress            String?       @map("payer_address")
+  sourceTxHash            String?       @map("source_tx_hash")
+  txSignature             String?       @unique @map("tx_signature")
+  expiresAt               DateTime      @map("expires_at") @db.Timestamptz(6)
+  submittedAt             DateTime?     @map("submitted_at") @db.Timestamptz(6)
+  confirmedAt             DateTime?     @map("confirmed_at") @db.Timestamptz(6)
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant                Merchant      @relation(fields: [merchantId], references: [id])
+  transactions            Transaction[]
 
   @@map("sessions")
 }
 
 model Transaction {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId      String   @map("session_id") @db.Uuid
-  session        Session  @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  txSignature    String   @unique @map("tx_signature")
-  payerAddress   String   @map("payer_address")
-  merchantAmount Decimal  @map("merchant_amount") @db.Decimal
-  splitAmount    Decimal  @map("split_amount") @db.Decimal
-  tokenMint      String?  @map("token_mint")    // null = native SOL
-  chain          String   @default("solana")     // solana, ethereum, polygon, etc.
-  paidAt         DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId               String   @map("session_id") @db.Uuid
+  txSignature             String   @unique @map("tx_signature")
+  payerAddress            String   @map("payer_address")
+  sourceChain             String   @map("source_chain")
+  sourceTxHash            String?  @map("source_tx_hash")
+  settlementChain         String   @default("solana") @map("settlement_chain")
+  merchantAmountUsdcUnits BigInt   @map("merchant_amount_usdc_units")
+  platformAmountUsdcUnits BigInt   @map("platform_amount_usdc_units")
+  tokenMint               String   @map("token_mint")
+  tokenDecimals           Int      @default(6) @map("token_decimals")
+  confirmedAt             DateTime @map("confirmed_at") @db.Timestamptz(6)
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  session                 Session  @relation(fields: [sessionId], references: [id])
 
   @@map("transactions")
+}
+
+model Terminal {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId       String   @map("merchant_id") @db.Uuid
+  label            String
+  nfcCode          String   @unique @map("nfc_code")
+  currentSessionId String?  @map("current_session_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant         Merchant @relation(fields: [merchantId], references: [id])
+
+  @@map("terminals")
+}
+
+enum SessionStatus {
+  pending
+  submitted
+  confirmed
+  failed
+  expired
+  cancelled
 }

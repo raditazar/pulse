@@ -2,7 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 // Re-export types agar bisa dipakai di apps lain
-export type { Merchant, Session, Transaction } from "@prisma/client";
+export type { Merchant, Session, SessionStatus, Terminal, Transaction } from "@prisma/client";
 export { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {

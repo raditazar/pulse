@@ -259,7 +259,6 @@ merchants.get("/:id/summary", async (c) => {
     prisma.transaction.findMany({
       where: {
         session: { merchantId: merchant.id },
-        confirmedAt: { gte: startOfToday },
       },
     }),
     prisma.session.findMany({

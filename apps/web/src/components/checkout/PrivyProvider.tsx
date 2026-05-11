@@ -1,15 +1,21 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
-import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import {
+  defaultSolanaRpcsPlugin,
+  toSolanaWalletConnectors,
+} from "@privy-io/react-auth/solana";
+import { pulseChains } from "@pulse/evm";
 import type { ReactNode } from "react";
 
 export const buyerPrivyAppId =
   process.env.NEXT_PUBLIC_PRIVY_BUYER_APP_ID ?? process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
 const solanaConnectors = toSolanaWalletConnectors({
-  shouldAutoConnect: true,
+  shouldAutoConnect: false,
 });
+
+const solanaRpcsPlugin = defaultSolanaRpcsPlugin();
 
 export function BuyerPrivyProvider({ children }: { children: ReactNode }) {
   if (!buyerPrivyAppId) {
@@ -20,6 +26,8 @@ export function BuyerPrivyProvider({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={buyerPrivyAppId}
       config={{
+        supportedChains: [pulseChains.baseSepolia, pulseChains.arbSepolia],
+        defaultChain: pulseChains.baseSepolia,
         appearance: {
           accentColor: "#9945FF",
           theme: "light",
@@ -31,9 +39,7 @@ export function BuyerPrivyProvider({ children }: { children: ReactNode }) {
             "wallet_connect",
             "phantom",
             "solflare",
-            "backpack",
             "detected_ethereum_wallets",
-            "detected_solana_wallets",
           ],
         },
         loginMethods: ["wallet", "email", "google", "passkey"],
@@ -46,6 +52,7 @@ export function BuyerPrivyProvider({ children }: { children: ReactNode }) {
             connectors: solanaConnectors,
           },
         },
+        plugins: [solanaRpcsPlugin],
       }}
     >
       {children}

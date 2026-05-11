@@ -1,5 +1,12 @@
 import { prisma } from "@pulse/database";
 import { Prisma } from "@pulse/database";
+import { PublicKey } from "@solana/web3.js";
+import {
+  createRandomSessionSeed,
+  derivePulseMerchantPda,
+  derivePulseSessionPda,
+  encodeSessionSeed,
+} from "@pulse/solana";
 import { env } from "../lib/env";
 
 const BPS_DENOMINATOR = 10_000n;
@@ -60,10 +67,19 @@ export async function createMerchantSession(input: {
 
   const split = calculateSplit(input.amountUsdcUnits, merchant.platformFeeBps);
 
+  // Generate proper 32-byte session seed (DB schema default = gen_random_uuid()
+  // bukan format yang valid untuk Solana PDA + EVM bytes32, jadi kita override).
+  const sessionSeedBytes = createRandomSessionSeed();
+  const sessionSeedHex = encodeSessionSeed(sessionSeedBytes);
+  const merchantPda = new PublicKey(merchant.merchantPda);
+  const [sessionPda] = derivePulseSessionPda(merchantPda, sessionSeedBytes);
+
   return db.session.create({
     data: {
       merchantId: merchant.id,
       terminalId: input.terminalId,
+      sessionSeed: sessionSeedHex,
+      sessionPda: sessionPda.toBase58(),
       amountUsdc: usdcUnitsToDecimal(input.amountUsdcUnits),
       amountUsdcUnits: input.amountUsdcUnits,
       merchantAmountUsdcUnits: split.merchantAmountUsdcUnits,

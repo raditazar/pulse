@@ -1,7 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { MerchantPrivyProvider } from "@/components/dashboard/PrivyProvider";
+
+const blockBraveWalletScript = `
+(function(){
+  try {
+    var w = window;
+    var killBrave = function(){
+      try {
+        if (w.solana && w.solana.isBraveWallet) {
+          Object.defineProperty(w, 'solana', { value: undefined, writable: true, configurable: true });
+        }
+        if (w.braveSolana) {
+          Object.defineProperty(w, 'braveSolana', { value: undefined, writable: true, configurable: true });
+        }
+      } catch (e) {}
+    };
+    killBrave();
+    var iv = setInterval(killBrave, 50);
+    setTimeout(function(){ clearInterval(iv); }, 4000);
+  } catch (e) {}
+})();
+`;
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -34,6 +56,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${mono.variable}`}>
+      <head>
+        <Script
+          id="block-brave-wallet"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: blockBraveWalletScript }}
+        />
+      </head>
       <body className="min-h-dvh font-sans antialiased">
         <MerchantPrivyProvider>{children}</MerchantPrivyProvider>
       </body>

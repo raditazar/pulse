@@ -3,12 +3,13 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --turbopack --port 3000",
-    "start": "next start --port 3000",
+    "dev": "next dev --turbopack",
+    "start": "next start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@privy-io/react-auth": "3.23.1",
+    "@pulse/evm": "workspace:*",
     "@pulse/solana": "workspace:*",
     "@pulse/types": "workspace:*",
     "@pulse/ui": "workspace:*",
@@ -24,7 +25,8 @@
     "gsap": "^3.15.0",
     "next": "^16.2.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "viem": "^2.48.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",

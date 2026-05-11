@@ -44,6 +44,8 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 type TerminalCheckoutResponse = {
   sessionId: string;
+  sessionPda?: string;
+  sessionSeed?: string;
   merchantId: string;
   terminalId?: string | null;
   amountUsdcUnits: string;
@@ -101,8 +103,8 @@ function normalizeTerminalCheckout(payload: TerminalCheckoutResponse): CheckoutS
 
   const session = {
     id: payload.sessionId,
-    sessionPda: payload.sessionId,
-    sessionSeed: payload.sessionId,
+    sessionPda: payload.sessionPda ?? payload.sessionId,
+    sessionSeed: payload.sessionSeed ?? payload.sessionId,
     merchantPda: merchant.merchantPda,
     merchantId: payload.merchantId,
     amountUsdc: unitsToUsdc(payload.amountUsdcUnits),

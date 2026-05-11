@@ -145,6 +145,8 @@ export type CreateMerchantSessionInput = {
 
 export type CreateMerchantSessionResponse = {
   sessionId: string;
+  sessionPda: string;
+  sessionSeed: string;
   terminal: MerchantTerminal;
   amountUsdcUnits: string;
   merchantAmountUsdcUnits: string;
@@ -226,6 +228,27 @@ export async function createMerchantSession(
     body: JSON.stringify(payload),
   });
   return parseJson<CreateMerchantSessionResponse>(response);
+}
+
+export interface FundMerchantResponse {
+  funded: boolean;
+  reason: string;
+  txSignature?: string;
+  recipientBalanceLamportsAfter: number;
+  funderAddress: string;
+}
+
+/**
+ * Top-up SOL devnet ke merchant authority dari funding pool action-api.
+ * Idempotent: kalau saldo cukup, return `funded: false`.
+ */
+export async function fundMerchantSol(
+  merchantRef: string,
+): Promise<FundMerchantResponse> {
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/fund`, {
+    method: "POST",
+  });
+  return parseJson<FundMerchantResponse>(response);
 }
 
 export async function cancelSession(sessionRef: string): Promise<{

@@ -50,6 +50,8 @@ function isUuid(value: string) {
 function serializeSession(session: SessionWithMerchant) {
   return {
     sessionId: session.id,
+    sessionPda: session.sessionPda,
+    sessionSeed: session.sessionSeed,
     merchantId: session.merchantId,
     terminalId: session.terminalId,
     amountUsdcUnits: bigintToString(session.amountUsdcUnits),

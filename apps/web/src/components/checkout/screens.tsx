@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { CheckoutSessionResponse } from "@pulse/types";
 import {
   CopyIcon,
@@ -10,12 +10,19 @@ import {
   WalletGlyph,
 } from "./icons";
 import { BuyerPaymentAction, BuyerWalletField } from "./BuyerWalletConnect";
+import { ChainSelector } from "./ChainSelector";
 import { MerchantCard } from "./MerchantCard";
 import {
   buildMockTxSignature,
-  formatNetworkLabel,
   formatUsdc,
 } from "@/lib/mock-checkout";
+import {
+  chainLabel,
+  explorerName,
+  explorerTxUrl,
+  isEvmChain,
+  type CheckoutChainKey,
+} from "@/lib/chain";
 import {
   AlertInfo,
   BackButton,
@@ -30,16 +37,18 @@ import {
 
 const stateIconBase = "mx-auto grid place-items-center rounded-full text-white";
 
-function getSessionView(session: CheckoutSessionResponse) {
+function getSessionView(session: CheckoutSessionResponse, chain: CheckoutChainKey = "solana") {
   const total = Number(session.session.amountUsdc);
   const safeTotal = Number.isFinite(total) ? total : 0;
   const platformCut = (safeTotal * session.merchant.splitBasisPoints) / 10_000;
   const merchantNet = Math.max(0, safeTotal - platformCut);
 
+  const settleSuffix = isEvmChain(chain) ? " → Solana settle" : "";
+
   return {
     merchantName: session.merchant.name ?? "Pulse Merchant",
     merchantAddress: `${session.merchant.merchantPda.slice(0, 6)}…${session.merchant.merchantPda.slice(-6)}`,
-    networkLabel: formatNetworkLabel(session.cluster),
+    networkLabel: `${chainLabel(chain)}${settleSuffix}`,
     totalLabel: formatUsdc(safeTotal),
     merchantNetLabel: formatUsdc(merchantNet),
     platformFeeLabel: formatUsdc(platformCut),
@@ -48,14 +57,20 @@ function getSessionView(session: CheckoutSessionResponse) {
 
 function PaymentBreakdown({
   session,
+  chain = "solana",
 }: {
   session: CheckoutSessionResponse;
+  chain?: CheckoutChainKey;
 }) {
-  const view = getSessionView(session);
+  const view = getSessionView(session, chain);
   const breakdown = [
     { label: "Amount to merchant", amount: view.merchantNetLabel },
     { label: "Platform fee", amount: view.platformFeeLabel },
   ];
+
+  const lockMessage = isEvmChain(chain)
+    ? `Paid in pmUSDC on ${chainLabel(chain)}, settled on Solana via Pulse relayer.`
+    : "This payment is settled in USDC on Solana.";
 
   return (
     <section className="rounded-card border border-border bg-surface px-4 py-4 shadow-[0_18px_32px_-24px_rgba(15,23,42,0.45)]">
@@ -79,7 +94,7 @@ function PaymentBreakdown({
       <div className="mt-4">
         <AlertInfo>
           <LockIcon size={13} />
-          <span>This payment is settled in USDC on Solana.</span>
+          <span>{lockMessage}</span>
         </AlertInfo>
       </div>
     </section>
@@ -103,12 +118,18 @@ export function CheckoutScreen({
   session,
   onPay,
   onBack,
+  selectedChain = "solana",
+  availableChains = ["solana"],
+  onChainSelect,
 }: {
   session: CheckoutSessionResponse;
   onPay?: (address?: string) => void;
   onBack?: () => void;
+  selectedChain?: CheckoutChainKey;
+  availableChains?: CheckoutChainKey[];
+  onChainSelect?: (key: CheckoutChainKey) => void;
 }) {
-  const view = getSessionView(session);
+  const view = getSessionView(session, selectedChain);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -130,17 +151,25 @@ export function CheckoutScreen({
       </div>
 
       <div className="relative z-10 -mt-10">
-        <PaymentBreakdown session={session} />
+        <PaymentBreakdown session={session} chain={selectedChain} />
       </div>
 
       <div className="flex flex-1 flex-col gap-3 pt-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FieldRow label="Network" hint="Fast • Low fees">
+          <FieldRow label="Network" hint={isEvmChain(selectedChain) ? "Cross-chain → Solana" : "Fast • Low fees"}>
             <span>{view.networkLabel}</span>
             <SolanaStripeMark />
           </FieldRow>
           <BuyerWalletField />
         </div>
+
+        {availableChains.length > 1 && (
+          <ChainSelector
+            available={availableChains}
+            selected={selectedChain}
+            onSelect={(key) => onChainSelect?.(key)}
+          />
+        )}
 
         <div className="mt-auto flex flex-col gap-2.5 pt-3">
           <BuyerPaymentAction onPay={onPay} />
@@ -150,7 +179,15 @@ export function CheckoutScreen({
   );
 }
 
-export function WalletPendingScreen({ onBack }: { onBack?: () => void }) {
+export function WalletPendingScreen({
+  onBack,
+  title = "Waiting for wallet approval",
+  subtitle = "Complete the approval in your wallet app.",
+}: {
+  onBack?: () => void;
+  title?: string;
+  subtitle?: string;
+}) {
   return (
     <div className="flex flex-1 flex-col">
       <BackButton onClick={onBack} />
@@ -166,10 +203,8 @@ export function WalletPendingScreen({ onBack }: { onBack?: () => void }) {
             <WalletGlyph size={54} />
           </div>
         </div>
-        <ScreenTitle>Waiting for wallet approval</ScreenTitle>
-        <ScreenSub className="max-w-[320px] px-4">
-          Complete the approval in your wallet app.
-        </ScreenSub>
+        <ScreenTitle>{title}</ScreenTitle>
+        <ScreenSub className="max-w-[320px] px-4">{subtitle}</ScreenSub>
         <AlertInfo variant="muted">
           <span>⏱ Keep this page open</span>
         </AlertInfo>
@@ -178,7 +213,31 @@ export function WalletPendingScreen({ onBack }: { onBack?: () => void }) {
   );
 }
 
-export function ProcessingScreen({ onBack }: { onBack?: () => void }) {
+export function ProcessingScreen({
+  onBack,
+  title,
+  subtitle = "Please wait a moment.",
+  chain = "solana",
+}: {
+  onBack?: () => void;
+  title?: ReactNode;
+  subtitle?: string;
+  chain?: CheckoutChainKey;
+}) {
+  const fallbackTitle = isEvmChain(chain) ? (
+    <>
+      Confirming on
+      <br />
+      {chainLabel(chain)}...
+    </>
+  ) : (
+    <>
+      Sending transaction
+      <br />
+      on Solana...
+    </>
+  );
+
   return (
     <div className="flex flex-1 flex-col">
       <BackButton onClick={onBack} />
@@ -189,12 +248,8 @@ export function ProcessingScreen({ onBack }: { onBack?: () => void }) {
         >
           <SolanaTokenGlyph size={36} />
         </div>
-        <ScreenTitle>
-          Sending transaction
-          <br />
-          on Solana...
-        </ScreenTitle>
-        <ScreenSub>Please wait a moment.</ScreenSub>
+        <ScreenTitle>{title ?? fallbackTitle}</ScreenTitle>
+        <ScreenSub>{subtitle}</ScreenSub>
         <div className="h-1.5 w-full max-w-[280px] overflow-hidden rounded-pill bg-bg">
           <div className="h-full progress-stripe rounded-pill" style={{ width: "75%" }} />
         </div>
@@ -207,13 +262,16 @@ export function SuccessScreen({
   session,
   txSignature = buildMockTxSignature(),
   onDone,
+  chain = "solana",
 }: {
   session: CheckoutSessionResponse;
   txSignature?: string;
   onDone?: () => void;
+  chain?: CheckoutChainKey;
 }) {
   const [copied, setCopied] = useState(false);
-  const view = getSessionView(session);
+  const view = getSessionView(session, chain);
+  const explorerLabel = explorerName(chain);
 
   const handleCopySignature = async () => {
     await navigator.clipboard?.writeText(txSignature);
@@ -221,8 +279,8 @@ export function SuccessScreen({
     window.setTimeout(() => setCopied(false), 1600);
   };
 
-  const handleOpenSolscan = () => {
-    window.open(`https://solscan.io/tx/${txSignature}`, "_blank", "noopener,noreferrer");
+  const handleOpenExplorer = () => {
+    window.open(explorerTxUrl(chain, txSignature), "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -289,7 +347,7 @@ export function SuccessScreen({
 
       <div className="mt-4 flex flex-col gap-2">
         <PrimaryButton onClick={onDone}>Back to Merchant</PrimaryButton>
-        <SecondaryButton onClick={handleOpenSolscan}>View on Solscan</SecondaryButton>
+        <SecondaryButton onClick={handleOpenExplorer}>View on {explorerLabel}</SecondaryButton>
       </div>
     </div>
   );

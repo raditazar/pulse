@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../lib/env";
 import { bigintToString } from "../lib/http";
+import { fundIfNeeded, getFunderAddress } from "../services/funder";
 import { createMerchantSession } from "../services/session-service";
 import {
   buildCheckoutResponse,
@@ -244,6 +245,38 @@ merchants.get("/:id", async (c) => {
   });
 });
 
+/**
+ * Top-up SOL devnet ke merchant authority dari funding pool. Idempotent:
+ * kalau balance >= threshold, no-op. Dipanggil oleh ops UI sebelum
+ * initialize_merchant / create_session supaya wallet punya rent + fee.
+ */
+merchants.post("/:id/fund", async (c) => {
+  const id = c.req.param("id");
+  const merchant = await findMerchantByRef(id);
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
+
+  try {
+    const result = await fundIfNeeded(merchant.authority);
+    return c.json(result);
+  } catch (error) {
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Funding failed",
+        funderAddress: (() => {
+          try {
+            return getFunderAddress();
+          } catch {
+            return null;
+          }
+        })(),
+      },
+      500,
+    );
+  }
+});
+
 merchants.get("/:id/summary", async (c) => {
   const id = c.req.param("id");
   const merchant = await findMerchantByRef(id);
@@ -428,6 +461,8 @@ merchants.post("/:id/sessions", async (c) => {
   return c.json(
     {
       sessionId: result.session.id,
+      sessionPda: result.session.sessionPda,
+      sessionSeed: result.session.sessionSeed,
       terminal: serializeTerminal(result.terminal),
       amountUsdcUnits: bigintToString(result.session.amountUsdcUnits),
       merchantAmountUsdcUnits: bigintToString(result.session.merchantAmountUsdcUnits),

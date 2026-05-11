@@ -5,25 +5,58 @@ import {
   useLogin,
   usePrivy,
   useWallets as useEthereumWallets,
+  type ConnectedWallet,
 } from "@privy-io/react-auth";
-import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
+import { useWallets as useSolanaWalletsPrivy } from "@privy-io/react-auth/solana";
+
+type ConnectedSolanaWallet = NonNullable<
+  ReturnType<typeof useSolanaWalletsPrivy>["wallets"][number]
+>;
 import { ChevronRight } from "./icons";
 import { FieldRow, PrimaryButton } from "./ui";
 import { buyerPrivyAppId } from "./PrivyProvider";
+import type { CheckoutChainKey } from "@/lib/chain";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
-export function useBuyerWalletConnection(onPay?: (address?: string) => void) {
+export function availableChainsFor(
+  hasEvm: boolean,
+  hasSolana: boolean,
+): CheckoutChainKey[] {
+  if (hasEvm && hasSolana) return ["solana", "baseSepolia", "arbSepolia"];
+  if (hasEvm) return ["baseSepolia", "arbSepolia"];
+  if (hasSolana) return ["solana"];
+  return [];
+}
+
+export interface BuyerWalletConnectionState {
+  ready: boolean;
+  authenticated: boolean;
+  hasPaymentWallet: boolean;
+  hasWallet: boolean;
+  ethereumWallet: ConnectedWallet | undefined;
+  solanaWallet: ConnectedSolanaWallet | undefined;
+  availableChains: CheckoutChainKey[];
+  label: string;
+  walletAddress: string | undefined;
+  walletName: string | undefined;
+  handleWalletAction: () => void;
+}
+
+export function useBuyerWalletConnection(
+  onPay?: (address?: string) => void,
+): BuyerWalletConnectionState {
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin();
   const { connectWallet } = useConnectWallet();
   const { wallets: ethereumWallets } = useEthereumWallets();
-  const { wallets: solanaWallets } = useSolanaWallets();
+  const { wallets: solanaWallets } = useSolanaWalletsPrivy();
   const ethereumWallet = ethereumWallets[0];
   const solanaWallet = solanaWallets[0];
   const hasPaymentWallet = ethereumWallets.length > 0 || solanaWallets.length > 0;
+  // Prioritas EVM dulu kalau dua-duanya connect (default flow cross-chain).
   const walletName = ethereumWallet?.meta.name ?? solanaWallet?.standardWallet.name;
   const walletAddress = ethereumWallet?.address ?? solanaWallet?.address;
   const label = walletName ?? (authenticated ? "Choose a payment wallet" : "Not connected");
@@ -43,7 +76,7 @@ export function useBuyerWalletConnection(onPay?: (address?: string) => void) {
       });
       return;
     }
-    onPay?.(solanaWallet?.address ?? ethereumWallet?.address);
+    onPay?.(ethereumWallet?.address ?? solanaWallet?.address);
   };
 
   return {
@@ -51,6 +84,9 @@ export function useBuyerWalletConnection(onPay?: (address?: string) => void) {
     authenticated,
     hasPaymentWallet,
     hasWallet: Boolean(ethereumWallet || solanaWallet),
+    ethereumWallet,
+    solanaWallet,
+    availableChains: availableChainsFor(Boolean(ethereumWallet), Boolean(solanaWallet)),
     label,
     walletAddress: walletAddress ? shortAddress(walletAddress) : undefined,
     walletName,
@@ -111,24 +147,51 @@ function ConnectedBuyerWalletField() {
   );
 }
 
-export function BuyerPaymentAction({ onPay }: { onPay?: () => void }) {
+export function BuyerPaymentAction({
+  onPay,
+  disabled,
+  pendingLabel,
+}: {
+  onPay?: (address?: string) => void;
+  disabled?: boolean;
+  pendingLabel?: string;
+}) {
   if (!buyerPrivyAppId) {
-    return <PrimaryButton onClick={onPay}>Connect Wallet</PrimaryButton>;
+    return <PrimaryButton onClick={() => onPay?.()}>Connect Wallet</PrimaryButton>;
   }
 
-  return <ConnectedBuyerPaymentAction onPay={onPay} />;
+  return (
+    <ConnectedBuyerPaymentAction
+      onPay={onPay}
+      disabled={disabled}
+      pendingLabel={pendingLabel}
+    />
+  );
 }
 
 function ConnectedBuyerPaymentAction({
   onPay,
+  disabled,
+  pendingLabel,
 }: {
   onPay?: (address?: string) => void;
+  disabled?: boolean;
+  pendingLabel?: string;
 }) {
-  const { ready, authenticated, hasPaymentWallet, handleWalletAction } = useBuyerWalletConnection(onPay);
+  const { ready, authenticated, hasPaymentWallet, handleWalletAction } =
+    useBuyerWalletConnection(onPay);
+
+  const label = pendingLabel
+    ? pendingLabel
+    : hasPaymentWallet
+      ? "Approve Payment"
+      : authenticated
+        ? "Add Payment Wallet"
+        : "Connect Wallet";
 
   return (
-    <PrimaryButton onClick={handleWalletAction} disabled={!ready}>
-      {hasPaymentWallet ? "Approve Payment" : authenticated ? "Add Payment Wallet" : "Connect Wallet"}
+    <PrimaryButton onClick={handleWalletAction} disabled={!ready || disabled}>
+      {label}
     </PrimaryButton>
   );
 }

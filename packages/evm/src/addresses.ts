@@ -21,22 +21,30 @@ export interface EvmChainAddresses {
   nativeSymbol: "ETH";
 }
 
-const env = (name: string) => {
-  const v = process.env[name];
-  if (!v) return null;
-  if (!v.startsWith("0x") || v.length !== 42) {
-    throw new Error(`${name} harus address hex 0x... 40 chars, got "${v}"`);
+const parseAddress = (name: string, raw: string | undefined) => {
+  if (!raw) return null;
+  if (!raw.startsWith("0x") || raw.length !== 42) {
+    throw new Error(`${name} harus address hex 0x... 40 chars, got "${raw}"`);
   }
-  return v as `0x${string}`;
+  return raw as `0x${string}`;
 };
 
+// NOTE: Next.js hanya inline NEXT_PUBLIC_* kalau diakses sebagai literal string.
+// Jangan diganti jadi dynamic indexing (process.env[name]) — value akan undefined
+// di client bundle.
 export const PULSE_EVM_ADDRESSES: Record<EvmChainKey, EvmChainAddresses> = {
   baseSepolia: {
     chainId: 84_532,
     eid: 40_245,
     lzEndpoint: "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    mockUsdc: env("NEXT_PUBLIC_MOCK_USDC_BASE_SEPOLIA"),
-    pulseSender: env("NEXT_PUBLIC_PULSE_SENDER_BASE_SEPOLIA"),
+    mockUsdc: parseAddress(
+      "NEXT_PUBLIC_MOCK_USDC_BASE_SEPOLIA",
+      process.env.NEXT_PUBLIC_MOCK_USDC_BASE_SEPOLIA,
+    ),
+    pulseSender: parseAddress(
+      "NEXT_PUBLIC_PULSE_SENDER_BASE_SEPOLIA",
+      process.env.NEXT_PUBLIC_PULSE_SENDER_BASE_SEPOLIA,
+    ),
     rpcUrl: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA ?? "https://sepolia.base.org",
     blockExplorer: "https://sepolia.basescan.org",
     nativeSymbol: "ETH",
@@ -45,8 +53,14 @@ export const PULSE_EVM_ADDRESSES: Record<EvmChainKey, EvmChainAddresses> = {
     chainId: 421_614,
     eid: 40_231,
     lzEndpoint: "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    mockUsdc: env("NEXT_PUBLIC_MOCK_USDC_ARB_SEPOLIA"),
-    pulseSender: env("NEXT_PUBLIC_PULSE_SENDER_ARB_SEPOLIA"),
+    mockUsdc: parseAddress(
+      "NEXT_PUBLIC_MOCK_USDC_ARB_SEPOLIA",
+      process.env.NEXT_PUBLIC_MOCK_USDC_ARB_SEPOLIA,
+    ),
+    pulseSender: parseAddress(
+      "NEXT_PUBLIC_PULSE_SENDER_ARB_SEPOLIA",
+      process.env.NEXT_PUBLIC_PULSE_SENDER_ARB_SEPOLIA,
+    ),
     rpcUrl:
       process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA ??
       "https://sepolia-rollup.arbitrum.io/rpc",

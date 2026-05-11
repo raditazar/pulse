@@ -54,7 +54,7 @@ impl LzReceive<'_> {
         let allowed = matches!(payload.source_eid, 40161 | 40231 | 40245 | 40168);
         require!(allowed, LzError::UnsupportedEid);
 
-        // 4. Emit event — off-chain relayer Pulse pre-warm session di pulse_payment.
+        // 4. Emit event — trusted relayer Pulse pick up & call `pulse_payment.execute_trusted_split`.
         let now = Clock::get()?.unix_timestamp;
         emit!(LzPaymentIntentReceived {
             session_id: payload.session_id,

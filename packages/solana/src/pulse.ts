@@ -1,8 +1,14 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const DEFAULT_PULSE_PROGRAM_ID = new PublicKey(
-  process.env.PULSE_PROGRAM_ID ?? "Gh2NP3fBQfdARCkTerXx8vzgEY1yFhH5ApM8v79rj8d2",
+  process.env.PULSE_PROGRAM_ID ?? "2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF",
 );
+
+export const PULSE_CONFIG_SEED = Buffer.from("pulse-config");
+
+export function derivePulseConfigPda(programId = DEFAULT_PULSE_PROGRAM_ID) {
+  return PublicKey.findProgramAddressSync([PULSE_CONFIG_SEED], programId);
+}
 
 export function derivePulseMerchantPda(
   authority: PublicKey,

@@ -45,42 +45,34 @@ pub enum CoreError {
     SourceBalanceInsufficient = 6013,
 }
 
-/// Pulse cross-chain error codes — range 6100-6199 (per task division dengan core-program owner).
+/// Trusted-relayer / cross-chain error codes — range 6100-6199.
+///
+/// Pulse cross-chain saat ini memakai model **trusted off-chain relayer**:
+///   - EVM (Base/Arb Sepolia) → LayerZero V2 → Solana `pulse_lz_oapp` (emit event)
+///   - Off-chain relayer (signer key di `PulseConfig.trusted_relayer`) baca event
+///   - Relayer call `pulse_payment.execute_trusted_split` dgn USDC dari treasury-nya
+///
+/// CCTP dihapus dari scope karena memakai mock USDC sendiri di sisi EVM.
 #[error_code]
 pub enum CrossChainError {
-    #[msg("Hook data length invalid (expected 88 bytes: session_id 32 + source_domain 4 + sender 20 + amount 8 + nonce 24)")]
-    InvalidHookDataLength = 6100,
+    #[msg("Signer bukan trusted relayer yang terdaftar di PulseConfig")]
+    UnauthorizedRelayer = 6100,
 
-    #[msg("Hook data session_id does not match provided PaymentSession PDA")]
-    HookSessionMismatch = 6101,
+    #[msg("PulseConfig PDA belum di-initialize — admin perlu call init_config dulu")]
+    ConfigNotInitialized = 6101,
 
-    #[msg("Hook data source_domain not in allowlist (Sepolia/Base Sepolia/Arbitrum Sepolia/Avalanche Fuji)")]
-    UnsupportedSourceDomain = 6102,
+    #[msg("Hanya admin PulseConfig yang dapat memperbarui trusted relayer")]
+    UnauthorizedAdmin = 6102,
 
-    #[msg("USDC vault balance below session.amount_usdc — message tidak ter-mint atau salah recipient")]
-    VaultBalanceInsufficient = 6103,
+    #[msg("LayerZero source EID tidak masuk allowlist Pulse (40161/40231/40245)")]
+    UnsupportedSourceEid = 6103,
 
-    #[msg("PaymentSession sudah tidak Pending — kemungkinan replay")]
-    SessionNotPending = 6104,
+    #[msg("Amount cross-chain tidak match dengan PaymentSession.amount_usdc")]
+    AmountMismatch = 6104,
 
-    #[msg("PaymentSession sudah expired berdasarkan unix timestamp on-chain")]
-    SessionExpired = 6105,
+    #[msg("Relayer USDC ATA balance kurang dari amount yang akan didistribusikan")]
+    RelayerBalanceInsufficient = 6105,
 
-    #[msg("Vault account bukan ATA yang dimiliki vault_authority PDA")]
-    InvalidVaultAuthority = 6106,
-
-    #[msg("Vault token mint bukan USDC devnet yang diharapkan")]
-    InvalidVaultMint = 6107,
-
-    #[msg("CCTP message_transmitter_v2 used_nonce account tidak owned by program resmi")]
-    InvalidCctpAttestation = 6108,
-
-    #[msg("Cluster runtime guard: instruksi cross-chain hanya boleh devnet, tapi terdeteksi mainnet")]
-    MainnetForbidden = 6109,
-
-    #[msg("LayerZero peer EID belum di-set untuk source chain ini")]
-    LzPeerNotSet = 6110,
-
-    #[msg("LayerZero payload gagal di-deserialize (Borsh)")]
-    LzPayloadInvalid = 6111,
+    #[msg("Relayer USDC ATA mint berbeda dengan USDC mint yang di-resolve dari beneficiary ATA")]
+    RelayerMintMismatch = 6106,
 }

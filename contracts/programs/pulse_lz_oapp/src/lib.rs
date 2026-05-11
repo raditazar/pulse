@@ -1,14 +1,24 @@
 //! Pulse LayerZero V2 OApp — receives PaymentIntent dari peer EVM (Base Sepolia, Arbitrum
-//! Sepolia, dll.) dan pre-warm `PaymentSession` di program `pulse_payment` via CPI / event.
+//! Sepolia) untuk Pulse cross-chain settlement.
 //!
 //! Standalone program (program ID terpisah dari `pulse_payment`) supaya:
-//! 1. Dependency `oapp` git tidak menyentuh build path Phase 1.
-//! 2. LayerZero standard practice — OApp punya program ID dedicated.
+//! 1. Dependency `oapp` git tidak menyentuh build path program inti.
+//! 2. LayerZero best practice — OApp punya program ID dedicated.
 //!
-//! Untuk M0 Phase 2: `lz_receive` cukup decode payload + emit `LzPaymentIntentReceived` event.
-//! Off-chain relayer/indexer Pulse pick up event ini dan pre-warm session via instruksi
-//! `pulse_payment` standar. CPI direct ke `pulse_payment` di-defer sampai core program merge
-//! supaya tidak coupling tight ke mock state.
+//! ## Trusted-relayer model
+//!
+//! `lz_receive` **tidak** menggerakkan token. Tugasnya hanya:
+//!   1. Validasi peer (sender match `PeerConfig.peer_address`)
+//!   2. CPI `endpoint::clear` (anti-replay)
+//!   3. Decode 64-byte `PulseLzPayload`
+//!   4. Emit `LzPaymentIntentReceived`
+//!
+//! Off-chain relayer Pulse (signer key disimpan di `pulse_payment::PulseConfig.trusted_relayer`)
+//! men-subscribe event ini, lalu memanggil `pulse_payment.execute_trusted_split` yang melakukan
+//! transfer USDC sebenarnya dari treasury relayer ke beneficiary ATAs.
+//!
+//! Pemisahan ini intentional: LayerZero menjamin authenticity payload; trust untuk settlement
+//! di-isolate ke single signer yang bisa dirotasi via `pulse_payment::set_trusted_relayer`.
 
 use anchor_lang::prelude::*;
 use oapp::{

@@ -6,8 +6,8 @@ export function CheckoutShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh w-full flex-col bg-bg">
       <AppHeader />
       <div className="flex flex-1 items-stretch justify-center px-0 sm:items-start sm:px-6 sm:py-10">
-        <section className="flex w-full flex-1 flex-col bg-surface sm:max-w-[460px] sm:flex-none sm:rounded-card sm:border sm:border-border sm:panel-shadow">
-          <div className="flex flex-1 flex-col px-5 pb-7 pt-5 sm:px-6 sm:pb-7 sm:pt-6">
+        <section className="flex w-full flex-1 flex-col bg-surface sm:h-[min(720px,calc(100dvh-9rem))] sm:min-h-[620px] sm:max-w-[460px] sm:flex-none sm:overflow-hidden sm:rounded-card sm:border sm:border-border sm:panel-shadow">
+          <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-7 pt-5 sm:px-6 sm:pb-7 sm:pt-6">
             {children}
           </div>
         </section>

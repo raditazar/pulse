@@ -3,16 +3,34 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { env, getPlatformUsdcTokenAccount } from "../lib/env";
 import { bigintToString, parseJsonBody } from "../lib/http";
-import { createMerchantSession, expireSessionIfNeeded } from "../services/session-service";
 import { verifySmartContractPayment } from "../services/payment-verifier";
+import {
+  buildCheckoutResponse,
+  buildCreateSessionData,
+  buildCreateSessionResponse,
+} from "../services/pulse";
+import { createMerchantSession, expireSessionIfNeeded } from "../services/session-service";
 
 const sessions = new Hono();
 
-const createSessionSchema = z.object({
+const createTerminalSessionSchema = z.object({
   merchantId: z.string().uuid(),
   amountUsdcUnits: z.coerce.bigint().positive(),
   sourceChain: z.string().min(2).default("solana"),
 });
+
+const createPulseSessionSchema = z
+  .object({
+    merchantId: z.string().uuid().optional(),
+    merchantPda: z.string().optional(),
+    amountUsdc: z.string().min(1),
+    expiresAt: z.string().datetime().optional(),
+    sessionSeed: z.string().optional(),
+  })
+  .refine((value) => value.merchantId || value.merchantPda, {
+    message: "merchantId or merchantPda is required",
+    path: ["merchantId"],
+  });
 
 const submitSignatureSchema = z.object({
   txSignature: z.string().min(64),
@@ -21,7 +39,11 @@ const submitSignatureSchema = z.object({
   sourceTxHash: z.string().min(10).optional(),
 });
 
-function serializeSession(session: Awaited<ReturnType<typeof createMerchantSession>>) {
+type SessionWithMerchant = NonNullable<
+  Awaited<ReturnType<typeof prisma.session.findFirst<{ include: { merchant: true } }>>>
+>;
+
+function serializeSession(session: SessionWithMerchant) {
   return {
     sessionId: session.id,
     merchantId: session.merchantId,
@@ -50,30 +72,60 @@ function serializeSession(session: Awaited<ReturnType<typeof createMerchantSessi
 }
 
 sessions.post("/", async (c) => {
-  const parsed = await parseJsonBody(c, createSessionSchema);
-  if (parsed instanceof Response) return parsed;
+  const body = await c.req.json().catch(() => null);
 
-  try {
-    const session = await createMerchantSession({
-      merchantId: parsed.merchantId,
-      amountUsdcUnits: parsed.amountUsdcUnits,
-      sourceChain: parsed.sourceChain,
-    });
-
-    return c.json(
-      {
-        ...serializeSession(session),
-        checkoutUrl: `${env.NEXT_PUBLIC_APP_URL}/pay/${session.id}`,
-      },
-      201
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "MERCHANT_NOT_FOUND") {
-      return c.json({ error: "Merchant not found" }, 404);
+  if (body && typeof body === "object" && "amountUsdcUnits" in body) {
+    const parsed = createTerminalSessionSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "Invalid request body", issues: parsed.error.flatten() }, 400);
     }
 
-    throw error;
+    try {
+      const session = await createMerchantSession({
+        merchantId: parsed.data.merchantId,
+        amountUsdcUnits: parsed.data.amountUsdcUnits,
+        sourceChain: parsed.data.sourceChain,
+      });
+
+      return c.json(
+        {
+          ...serializeSession(session),
+          checkoutUrl: `${env.NEXT_PUBLIC_APP_URL}/pay/${session.id}`,
+        },
+        201
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "MERCHANT_NOT_FOUND") {
+        return c.json({ error: "Merchant not found" }, 404);
+      }
+
+      throw error;
+    }
   }
+
+  const parsed = createPulseSessionSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400);
+  }
+
+  const merchant = await prisma.merchant.findFirst({
+    where: {
+      OR: [
+        parsed.data.merchantId ? { id: parsed.data.merchantId } : undefined,
+        parsed.data.merchantPda ? { merchantPda: parsed.data.merchantPda } : undefined,
+      ].filter(Boolean) as { id?: string; merchantPda?: string }[],
+    },
+  });
+
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
+
+  const session = await prisma.session.create({
+    data: buildCreateSessionData(parsed.data, merchant),
+  });
+
+  return c.json(buildCreateSessionResponse(session, merchant, env.NEXT_PUBLIC_APP_URL), 201);
 });
 
 sessions.get("/:id/status", async (c) => {
@@ -126,14 +178,10 @@ sessions.post("/:id/submit-signature", async (c) => {
 
 sessions.get("/:id", async (c) => {
   const id = c.req.param("id");
-  const maybeExpired = await expireSessionIfNeeded(id);
-
-  if (!maybeExpired) {
-    return c.json({ error: "Session not found" }, 404);
-  }
-
-  const session = await prisma.session.findUnique({
-    where: { id },
+  const session = await prisma.session.findFirst({
+    where: {
+      OR: [{ id }, { sessionPda: id }, { sessionSeed: id }],
+    },
     include: { merchant: true },
   });
 
@@ -141,7 +189,31 @@ sessions.get("/:id", async (c) => {
     return c.json({ error: "Session not found" }, 404);
   }
 
-  return c.json(serializeSession(session));
+  if (
+    session.expiresAt <= new Date() &&
+    (session.status === "pending" || session.status === "submitted")
+  ) {
+    const expired = await prisma.session.update({
+      where: { id: session.id },
+      data: { status: "expired" },
+      include: { merchant: true },
+    });
+    return c.json(serializeSession(expired));
+  }
+
+  if (session.amountUsdcUnits > 0n || session.terminalId) {
+    return c.json(serializeSession(session));
+  }
+
+  const payload = buildCheckoutResponse(session, session.merchant);
+  if (payload.session.status === "paid") {
+    return c.json(payload);
+  }
+  if (new Date(payload.session.expiresAt).getTime() < Date.now()) {
+    payload.session.status = "expired";
+  }
+
+  return c.json(payload);
 });
 
 export { sessions };

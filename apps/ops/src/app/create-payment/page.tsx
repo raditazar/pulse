@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "@/components/dashboard/icons";
+import { createMerchant, createSession } from "@/lib/api";
+import { useMerchantWalletState } from "@/components/dashboard/MerchantWalletPanel";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   ConfirmDialog,
@@ -11,38 +12,74 @@ import {
   Panel,
   PanelHeading,
 } from "@/components/dashboard/primitives";
-import { createPaymentDefaults, nfcTiles, type DisplayCurrency } from "@/lib/mock-data";
+import { cashierNfc, createPaymentDefaults, type DisplayCurrency } from "@/lib/mock-data";
 
 export default function CreatePaymentPage() {
+  const { wallet } = useMerchantWalletState();
   const [currency, setCurrency] = useState<DisplayCurrency>("USD");
   const [amounts, setAmounts] = useState(createPaymentDefaults.amount);
   const [description, setDescription] = useState(createPaymentDefaults.description);
-  const [selectedSticker, setSelectedSticker] = useState(createPaymentDefaults.selectedSticker);
   const [createdSession, setCreatedSession] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const d = createPaymentDefaults;
 
-  const handleCreateSession = () => {
-    const sessionId = `pulse-${Date.now().toString(36)}`;
-    setCreatedSession(sessionId);
-    setConfirmOpen(false);
+  const normalizeAmount = () => {
+    const raw = amounts[currency].replace(/[^0-9.]/g, "");
+    const parsed = Number(raw || "0");
+    return parsed.toFixed(2);
+  };
+
+  const handleCreateSession = async () => {
+    if (!wallet?.address) {
+      setStatusMessage("Connect a merchant Solana wallet first.");
+      setConfirmOpen(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    try {
+      const createdMerchant = await createMerchant({
+        authority: wallet.address,
+        primaryBeneficiary: wallet.address,
+        splitBasisPoints: 1000,
+        name: "Pulse Merchant",
+        metadataUri: `pulse://merchant/${wallet.address}`,
+        splitBeneficiaries: [],
+      });
+      const merchant = createdMerchant.merchant;
+
+      const created = await createSession({
+        merchantPda: merchant.merchantPda,
+        amountUsdc: normalizeAmount(),
+      });
+      setCreatedSession(created.checkoutUrl);
+      setStatusMessage(`Session created for ${created.session.amountUsdc} USDC`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Failed to create session");
+    } finally {
+      setIsSubmitting(false);
+      setConfirmOpen(false);
+    }
   };
 
   const handleCopySession = async () => {
     if (!createdSession) return;
-    await navigator.clipboard?.writeText(`${window.location.origin}/pay/${createdSession}`);
+    await navigator.clipboard?.writeText(createdSession);
   };
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Create Payment"
-        subtitle="Enter an amount and create a payment session for a customer or table."
+        subtitle="Enter an amount and bind the latest payment session to your cashier NFC."
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
-          <PanelHeading title="Payment Details" sub="The created session can be tapped through the selected NFC sticker." />
+          <PanelHeading title="Payment Details" sub="The created session is served through your account's single cashier NFC chip." />
 
           <div className="flex flex-col gap-3.5">
             <CurrencyToggle currency={currency} onChange={setCurrency} />
@@ -69,26 +106,20 @@ export default function CreatePaymentPage() {
               />
             </div>
 
-            <div>
-              <FieldLabel>Select NFC Sticker</FieldLabel>
-              <label className="flex items-center justify-between rounded-control border border-border bg-bg-soft px-3.5 py-3 text-[13px] font-semibold text-text focus-within:border-purple">
-                <select
-                  value={selectedSticker}
-                  onChange={(event) => setSelectedSticker(event.target.value)}
-                  className="min-w-0 flex-1 appearance-none bg-transparent outline-none"
-                  aria-label="Select NFC sticker"
-                >
-                  {nfcTiles.map((tile) => (
-                    <option key={tile.id} value={tile.name}>
-                      {tile.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} />
-              </label>
+            <div className="rounded-control border border-border bg-bg-soft p-3">
+              <div className="text-[11px] font-semibold text-muted">Cashier NFC Chip</div>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-bold text-text">{cashierNfc.name}</div>
+                  <div className="mt-0.5 text-[11px] text-muted">NFC #{cashierNfc.id}</div>
+                </div>
+                <span className="rounded-pill bg-lavender px-2 py-1 text-[10px] font-bold text-purple">
+                  Linked
+                </span>
+              </div>
             </div>
 
-            <CtaButton className="mt-2" onClick={() => setConfirmOpen(true)}>
+            <CtaButton className="mt-2" onClick={() => setConfirmOpen(true)} disabled={isSubmitting}>
               Create Payment Session
             </CtaButton>
 
@@ -96,8 +127,8 @@ export default function CreatePaymentPage() {
               <div className="rounded-control border border-border bg-bg-soft p-3 text-[12px] text-muted">
                 <div className="font-bold text-text">Session ready</div>
                 <div className="mt-1 num break-all text-[11px]">
-                  /pay/{createdSession} · {amounts[currency]} · {description || d.description} ·{" "}
-                  {selectedSticker}
+                  {createdSession} · {normalizeAmount()} USDC · {description || d.description} ·{" "}
+                  {cashierNfc.name}
                 </div>
                 <button
                   type="button"
@@ -108,6 +139,12 @@ export default function CreatePaymentPage() {
                 </button>
               </div>
             )}
+
+            {statusMessage && (
+              <div className="rounded-control border border-border bg-bg-soft p-3 text-[12px] text-muted">
+                {statusMessage}
+              </div>
+            )}
           </div>
         </Panel>
 
@@ -115,7 +152,7 @@ export default function CreatePaymentPage() {
           <PanelHeading title="Notes" sub="A few important details about payment sessions." />
           <ul className="flex flex-col gap-2 text-[12px] leading-relaxed text-muted">
             <li>ⓘ Sessions remain active for 15 minutes after creation.</li>
-            <li>ⓘ Stickers with an active session cannot be assigned again.</li>
+            <li>ⓘ Your cashier NFC always opens the latest active session.</li>
             <li>ⓘ Payments are signed directly in the customer wallet.</li>
             <li>ⓘ On-chain settlement usually completes in 1–2 seconds.</li>
           </ul>
@@ -125,8 +162,8 @@ export default function CreatePaymentPage() {
       <ConfirmDialog
         open={confirmOpen}
         title="Create this payment session?"
-        description="The selected NFC sticker will open this payment session for the customer."
-        confirmLabel="Create Session"
+        description="Your cashier NFC will open this latest payment session for the next customer tap."
+        confirmLabel={isSubmitting ? "Creating..." : "Create Session"}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleCreateSession}
       >
@@ -136,8 +173,8 @@ export default function CreatePaymentPage() {
             <span className="num font-extrabold text-text">{amounts[currency]}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-muted">Sticker</span>
-            <span className="truncate font-bold text-text">{selectedSticker}</span>
+            <span className="text-muted">Cashier NFC</span>
+            <span className="truncate font-bold text-text">{cashierNfc.name}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-muted">Description</span>

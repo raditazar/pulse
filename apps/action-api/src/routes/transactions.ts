@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { Prisma, prisma } from "@pulse/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { bigintToString, parseJsonBody } from "../lib/http";
@@ -14,11 +14,78 @@ const submitTransactionSchema = z.object({
   sourceTxHash: z.string().min(10).optional(),
 });
 
-transactions.post("/", async (c) => {
-  const parsed = await parseJsonBody(c, submitTransactionSchema);
-  if (parsed instanceof Response) return parsed;
+const recordTransactionSchema = z.object({
+  sessionPda: z.string().min(32),
+  sessionId: z.string().uuid(),
+  txSignature: z.string().min(16),
+  payerAddress: z.string().min(32),
+  tokenMint: z.string().optional().nullable(),
+  chain: z.string().default("solana"),
+  amountUsdc: z.string().optional(),
+  splitBreakdown: z.record(z.string(), z.unknown()).optional().nullable(),
+});
 
-  const result = await verifySmartContractPayment(parsed);
+transactions.post("/", async (c) => {
+  const body = await c.req.json().catch(() => null);
+
+  if (body && typeof body === "object" && "sessionPda" in body) {
+    const parsed = recordTransactionSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const session = await prisma.session.findFirst({
+      where: {
+        OR: [{ id: parsed.data.sessionId }, { sessionPda: parsed.data.sessionPda }],
+      },
+    });
+
+    if (!session) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    const [transaction] = await prisma.$transaction([
+      prisma.transaction.create({
+        data: {
+          sessionId: session.id,
+          txSignature: parsed.data.txSignature,
+          payerAddress: parsed.data.payerAddress,
+          tokenMint: parsed.data.tokenMint ?? null,
+          chain: parsed.data.chain,
+          sourceChain: parsed.data.chain,
+          amountUsdc: parsed.data.amountUsdc
+            ? new Prisma.Decimal(parsed.data.amountUsdc)
+            : null,
+          splitBreakdown:
+            (parsed.data.splitBreakdown as Prisma.InputJsonValue | null | undefined) ??
+            undefined,
+        },
+      }),
+      prisma.session.update({
+        where: { id: session.id },
+        data: {
+          status: "paid",
+          paidBy: parsed.data.payerAddress,
+        },
+      }),
+    ]);
+
+    return c.json(
+      {
+        success: true,
+        transactionId: transaction.id,
+        txSignature: transaction.txSignature,
+      },
+      201
+    );
+  }
+
+  const parsed = submitTransactionSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request body", issues: parsed.error.flatten() }, 400);
+  }
+
+  const result = await verifySmartContractPayment(parsed.data);
 
   if (result.status === "confirmed") {
     return c.json(
@@ -55,16 +122,20 @@ transactions.get("/:signature", async (c) => {
   return c.json({
     id: transaction.id,
     sessionId: transaction.sessionId,
+    sessionPda: transaction.session.sessionPda,
     txSignature: transaction.txSignature,
     payerAddress: transaction.payerAddress,
+    chain: transaction.chain,
     sourceChain: transaction.sourceChain,
     sourceTxHash: transaction.sourceTxHash,
     settlementChain: transaction.settlementChain,
+    amountUsdc: transaction.amountUsdc?.toString() ?? null,
     merchantAmountUsdcUnits: bigintToString(transaction.merchantAmountUsdcUnits),
     platformAmountUsdcUnits: bigintToString(transaction.platformAmountUsdcUnits),
     tokenMint: transaction.tokenMint,
     tokenDecimals: transaction.tokenDecimals,
     confirmedAt: transaction.confirmedAt.toISOString(),
+    paidAt: transaction.paidAt.toISOString(),
     createdAt: transaction.createdAt.toISOString(),
   });
 });

@@ -1,6 +1,9 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+"use client";
+
+import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { SegmentedToggle } from "@pulse/ui";
 import { currencies, type DisplayCurrency } from "@/lib/mock-data";
+import { ChevronDown } from "./icons";
 
 export function Panel({
   children,
@@ -13,7 +16,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`flex flex-col rounded-[14px] border border-border bg-surface panel-shadow ${noPadding ? "" : "p-4 sm:p-5"} ${className}`}
+      className={`card-rise-in flex flex-col rounded-[14px] border border-border bg-surface panel-shadow ${noPadding ? "" : "p-4 sm:p-5"} ${className}`}
     >
       {children}
     </section>
@@ -121,6 +124,71 @@ export function ConfirmDialog({
 
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <div className="mb-1.5 text-[11px] font-semibold text-muted">{children}</div>;
+}
+
+export function SelectDropdown<T extends string>({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  className = "",
+}: {
+  value: T;
+  options: readonly { value: T; label: ReactNode }[];
+  onChange: (value: T) => void;
+  ariaLabel: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
+  const handleSelect = (nextValue: T) => {
+    onChange(nextValue);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="focus-ring flex w-full items-center justify-between gap-2 rounded-[10px] border border-border bg-bg px-3 py-2.5 text-left text-[12px] font-bold text-text hover:border-purple/40"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+      >
+        <span className="min-w-0 flex-1 truncate">{selected?.label}</span>
+        <span className={`text-muted transition-transform ${open ? "rotate-180" : ""}`}>
+          <ChevronDown size={12} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.375rem)] z-40 overflow-hidden rounded-[12px] border border-border bg-surface p-1 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.75)]">
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => handleSelect(option.value)}
+                className="focus-ring flex w-full items-center justify-between rounded-[9px] px-3 py-2 text-left text-[12px] font-bold"
+                style={
+                  active
+                    ? {
+                        background: "linear-gradient(90deg, #9945FF, #B871FF)",
+                        color: "#FFFFFF",
+                      }
+                    : { color: "var(--color-muted)" }
+                }
+              >
+                <span className="truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ReadonlyInput({

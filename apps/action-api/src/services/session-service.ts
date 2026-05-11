@@ -1,4 +1,5 @@
 import { prisma } from "@pulse/database";
+import { Prisma } from "@pulse/database";
 import { env } from "../lib/env";
 
 const BPS_DENOMINATOR = 10_000n;
@@ -16,6 +17,12 @@ export function calculateSplit(amountUsdcUnits: bigint, platformFeeBps: number) 
 
 export function buildExpiresAt(now = new Date()) {
   return new Date(now.getTime() + env.SESSION_TTL_SECONDS * 1000);
+}
+
+export function usdcUnitsToDecimal(amountUsdcUnits: bigint) {
+  const whole = amountUsdcUnits / 1_000_000n;
+  const fractional = (amountUsdcUnits % 1_000_000n).toString().padStart(6, "0");
+  return new Prisma.Decimal(`${whole}.${fractional}`);
 }
 
 export async function expireSessionIfNeeded(sessionId: string) {
@@ -57,6 +64,7 @@ export async function createMerchantSession(input: {
     data: {
       merchantId: merchant.id,
       terminalId: input.terminalId,
+      amountUsdc: usdcUnitsToDecimal(input.amountUsdcUnits),
       amountUsdcUnits: input.amountUsdcUnits,
       merchantAmountUsdcUnits: split.merchantAmountUsdcUnits,
       platformAmountUsdcUnits: split.platformAmountUsdcUnits,

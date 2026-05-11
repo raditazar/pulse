@@ -30,8 +30,13 @@ terminals.post("/", async (c) => {
     return c.json({ error: "Merchant not found" }, 404);
   }
 
-  const terminal = await prisma.terminal.create({
-    data: parsed,
+  const terminal = await prisma.terminal.upsert({
+    where: { nfcCode: parsed.nfcCode },
+    update: {
+      merchantId: parsed.merchantId,
+      label: parsed.label,
+    },
+    create: parsed,
   });
 
   return c.json(
@@ -48,8 +53,8 @@ terminals.post("/", async (c) => {
 
 terminals.get("/:id", async (c) => {
   const id = c.req.param("id");
-  const terminal = await prisma.terminal.findUnique({
-    where: { id },
+  const terminal = await prisma.terminal.findFirst({
+    where: { OR: [{ id }, { nfcCode: id }] },
     include: { merchant: true },
   });
 
@@ -88,15 +93,13 @@ terminals.post("/:id/sessions", async (c) => {
   }
 
   const session = await prisma.$transaction(async (tx) => {
-    if (terminal.currentSessionId) {
-      await tx.session.updateMany({
-        where: {
-          id: terminal.currentSessionId,
-          status: { in: ["pending", "submitted"] },
-        },
-        data: { status: "cancelled" },
-      });
-    }
+    await tx.session.updateMany({
+      where: {
+        merchantId: terminal.merchantId,
+        status: { in: ["pending", "submitted"] },
+      },
+      data: { status: "cancelled" },
+    });
 
     const created = await createMerchantSession({
       merchantId: terminal.merchantId,

@@ -44,8 +44,8 @@ transactions.post("/", async (c) => {
       return c.json({ error: "Session not found" }, 404);
     }
 
-    const [transaction] = await prisma.$transaction([
-      prisma.transaction.create({
+    const transaction = await prisma.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
         data: {
           sessionId: session.id,
           txSignature: parsed.data.txSignature,
@@ -60,15 +60,28 @@ transactions.post("/", async (c) => {
             (parsed.data.splitBreakdown as Prisma.InputJsonValue | null | undefined) ??
             undefined,
         },
-      }),
-      prisma.session.update({
+      });
+
+      await tx.session.update({
         where: { id: session.id },
         data: {
           status: "paid",
           paidBy: parsed.data.payerAddress,
         },
-      }),
-    ]);
+      });
+
+      if (session.terminalId) {
+        await tx.terminal.updateMany({
+          where: {
+            id: session.terminalId,
+            currentSessionId: session.id,
+          },
+          data: { currentSessionId: null },
+        });
+      }
+
+      return created;
+    });
 
     return c.json(
       {

@@ -244,6 +244,17 @@ export async function verifySmartContractPayment(input: {
         confirmedAt,
       },
     }),
+    ...(session.terminalId
+      ? [
+          prisma.terminal.updateMany({
+            where: {
+              id: session.terminalId,
+              currentSessionId: session.id,
+            },
+            data: { currentSessionId: null },
+          }),
+        ]
+      : []),
   ]);
 
   return {

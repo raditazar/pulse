@@ -81,10 +81,21 @@ sessions.post("/", async (c) => {
     }
 
     try {
-      const session = await createMerchantSession({
-        merchantId: parsed.data.merchantId,
-        amountUsdcUnits: parsed.data.amountUsdcUnits,
-        sourceChain: parsed.data.sourceChain,
+      const session = await prisma.$transaction(async (tx) => {
+        await tx.session.updateMany({
+          where: {
+            merchantId: parsed.data.merchantId,
+            status: { in: ["pending", "submitted"] },
+          },
+          data: { status: "cancelled" },
+        });
+
+        return createMerchantSession({
+          merchantId: parsed.data.merchantId,
+          amountUsdcUnits: parsed.data.amountUsdcUnits,
+          sourceChain: parsed.data.sourceChain,
+          db: tx,
+        });
       });
 
       return c.json(
@@ -121,8 +132,18 @@ sessions.post("/", async (c) => {
     return c.json({ error: "Merchant not found" }, 404);
   }
 
-  const session = await prisma.session.create({
-    data: buildCreateSessionData(parsed.data, merchant),
+  const session = await prisma.$transaction(async (tx) => {
+    await tx.session.updateMany({
+      where: {
+        merchantId: merchant.id,
+        status: { in: ["pending", "submitted"] },
+      },
+      data: { status: "cancelled" },
+    });
+
+    return tx.session.create({
+      data: buildCreateSessionData(parsed.data, merchant),
+    });
   });
 
   return c.json(buildCreateSessionResponse(session, merchant, env.NEXT_PUBLIC_APP_URL), 201);

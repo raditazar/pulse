@@ -26,7 +26,20 @@ tap.get("/:nfcCode", async (c) => {
   });
 
   if (!session) {
+    await prisma.terminal.update({
+      where: { id: terminal.id },
+      data: { currentSessionId: null },
+    });
     return c.json({ error: "Active session not found" }, 404);
+  }
+
+  if (session.status !== "pending" && session.status !== "submitted") {
+    await prisma.terminal.update({
+      where: { id: terminal.id },
+      data: { currentSessionId: null },
+    });
+
+    return c.json({ error: "No active session for terminal" }, 404);
   }
 
   if (

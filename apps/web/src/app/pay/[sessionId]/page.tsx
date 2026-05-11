@@ -14,7 +14,6 @@ import {
   WalletPendingScreen,
 } from "@/components/checkout/screens";
 import type { CheckoutPhase } from "@/components/checkout/types";
-import type { DisplayCurrency } from "@/lib/mock-checkout";
 import {
   buildMockTxSignature,
 } from "@/lib/mock-checkout";
@@ -30,7 +29,6 @@ export default function CheckoutSessionPage({
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<CheckoutPhase>("loading");
-  const [currency, setCurrency] = useState<DisplayCurrency>("USDC");
   const [session, setSession] = useState<CheckoutSessionResponse | null>(null);
   const [sessionId, setSessionId] = useState<string>("");
   const [errorReason, setErrorReason] = useState("Unable to load checkout session");
@@ -107,8 +105,6 @@ export default function CheckoutSessionPage({
         {phase === "checkout" && resolvedSession && (
           <CheckoutScreen
             session={resolvedSession}
-            currency={currency}
-            onCurrencyChange={setCurrency}
             onPay={handlePay}
             onBack={() => router.push("/")}
           />
@@ -120,7 +116,6 @@ export default function CheckoutSessionPage({
         {phase === "success" && resolvedSession && (
           <SuccessScreen
             session={resolvedSession}
-            currency={currency}
             txSignature={txSignature}
             onDone={() => router.push("/")}
           />

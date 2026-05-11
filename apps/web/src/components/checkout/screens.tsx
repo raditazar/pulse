@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { CheckoutSessionResponse } from "@pulse/types";
-import { SegmentedToggle } from "@pulse/ui";
 import {
   CopyIcon,
   LockIcon,
@@ -15,9 +14,7 @@ import { MerchantCard } from "./MerchantCard";
 import {
   buildMockTxSignature,
   formatNetworkLabel,
-  formatSolFromUsdc,
   formatUsdc,
-  type DisplayCurrency,
 } from "@/lib/mock-checkout";
 import {
   AlertInfo,
@@ -32,50 +29,37 @@ import {
 } from "./ui";
 
 const stateIconBase = "mx-auto grid place-items-center rounded-full text-white";
-const currencies: DisplayCurrency[] = ["USDC", "SOL"];
 
-function formatAmount(amountUsdc: number | string, currency: DisplayCurrency) {
-  return currency === "SOL" ? formatSolFromUsdc(amountUsdc) : formatUsdc(amountUsdc);
-}
-
-function getSessionView(session: CheckoutSessionResponse, currency: DisplayCurrency = "USDC") {
+function getSessionView(session: CheckoutSessionResponse) {
   const total = Number(session.session.amountUsdc);
   const safeTotal = Number.isFinite(total) ? total : 0;
   const platformCut = (safeTotal * session.merchant.splitBasisPoints) / 10_000;
-  const sourceGas = currency === "SOL" ? 0 : Math.min(0.2, Math.max(0, safeTotal - platformCut));
-  const merchantNet = Math.max(0, safeTotal - platformCut - sourceGas);
+  const merchantNet = Math.max(0, safeTotal - platformCut);
 
   return {
     merchantName: session.merchant.name ?? "Pulse Merchant",
     merchantAddress: `${session.merchant.merchantPda.slice(0, 6)}…${session.merchant.merchantPda.slice(-6)}`,
     networkLabel: formatNetworkLabel(session.cluster),
-    totalLabel: formatAmount(safeTotal, currency),
-    merchantNetLabel: formatAmount(merchantNet, currency),
-    bridgeFeeLabel: formatAmount(platformCut, currency),
-    sourceGasLabel: formatAmount(sourceGas, currency),
+    totalLabel: formatUsdc(safeTotal),
+    merchantNetLabel: formatUsdc(merchantNet),
+    platformFeeLabel: formatUsdc(platformCut),
   };
 }
 
 function PaymentBreakdown({
   session,
-  currency,
-  onCurrencyChange,
 }: {
   session: CheckoutSessionResponse;
-  currency: DisplayCurrency;
-  onCurrencyChange: (currency: DisplayCurrency) => void;
 }) {
-  const view = getSessionView(session, currency);
+  const view = getSessionView(session);
   const breakdown = [
     { label: "Amount to merchant", amount: view.merchantNetLabel },
-    { label: "Bridge fee", amount: view.bridgeFeeLabel },
-    { label: "Source chain gas", amount: view.sourceGasLabel },
+    { label: "Platform fee", amount: view.platformFeeLabel },
   ];
 
   return (
     <section className="rounded-card border border-border bg-surface px-4 py-4 shadow-[0_18px_32px_-24px_rgba(15,23,42,0.45)]">
-      <CurrencyToggle currency={currency} onChange={onCurrencyChange} />
-      <div className="mt-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+      <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
         Payment Details
       </div>
       <div className="mt-3 flex flex-col gap-2.5 text-[13px]">
@@ -95,7 +79,7 @@ function PaymentBreakdown({
       <div className="mt-4">
         <AlertInfo>
           <LockIcon size={13} />
-          <span>Tip: payments are faster and cheaper through the Solana chain.</span>
+          <span>This payment is settled in USDC on Solana.</span>
         </AlertInfo>
       </div>
     </section>
@@ -117,18 +101,14 @@ export function LoadingScreen() {
 
 export function CheckoutScreen({
   session,
-  currency,
-  onCurrencyChange,
   onPay,
   onBack,
 }: {
   session: CheckoutSessionResponse;
-  currency: DisplayCurrency;
-  onCurrencyChange: (currency: DisplayCurrency) => void;
   onPay?: (address?: string) => void;
   onBack?: () => void;
 }) {
-  const view = getSessionView(session, currency);
+  const view = getSessionView(session);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -150,11 +130,7 @@ export function CheckoutScreen({
       </div>
 
       <div className="relative z-10 -mt-10">
-        <PaymentBreakdown
-          session={session}
-          currency={currency}
-          onCurrencyChange={onCurrencyChange}
-        />
+        <PaymentBreakdown session={session} />
       </div>
 
       <div className="flex flex-1 flex-col gap-3 pt-4">
@@ -229,17 +205,15 @@ export function ProcessingScreen({ onBack }: { onBack?: () => void }) {
 
 export function SuccessScreen({
   session,
-  currency = "USDC",
   txSignature = buildMockTxSignature(),
   onDone,
 }: {
   session: CheckoutSessionResponse;
-  currency?: DisplayCurrency;
   txSignature?: string;
   onDone?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const view = getSessionView(session, currency);
+  const view = getSessionView(session);
 
   const handleCopySignature = async () => {
     await navigator.clipboard?.writeText(txSignature);
@@ -321,23 +295,6 @@ export function SuccessScreen({
   );
 }
 
-function CurrencyToggle({
-  currency,
-  onChange,
-}: {
-  currency: DisplayCurrency;
-  onChange: (currency: DisplayCurrency) => void;
-}) {
-  return (
-    <SegmentedToggle
-      options={currencies.map((item) => ({ value: item, label: item }))}
-      value={currency}
-      onChange={onChange}
-      className="w-full"
-    />
-  );
-}
-
 export function ErrorScreen({
   reason = "Wallet approval was rejected",
   session,
@@ -386,7 +343,7 @@ export function ErrorScreen({
             </div>
             <div className="flex items-center justify-between gap-4">
               <span>Total</span>
-              <span className="num font-bold text-text">{view?.totalLabel ?? "$0.00"}</span>
+              <span className="num font-bold text-text">{view?.totalLabel ?? "0.00 USDC"}</span>
             </div>
             <div className="rounded-control border border-border bg-bg px-3 py-2 text-center text-[12px] font-semibold text-muted">
               No funds were moved.

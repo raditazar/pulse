@@ -1,19 +1,10 @@
-export type DisplayCurrency = "USDC" | "SOL";
-
 export function formatUsdc(amountUsdc: string | number) {
   const value = Number(amountUsdc);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0);
-}
-
-export function formatSolFromUsdc(amountUsdc: string | number) {
-  const value = Number(amountUsdc);
-  const sol = (Number.isFinite(value) ? value : 0) / 150;
-  return `${sol.toFixed(4)} SOL`;
+  return `${formatted} USDC`;
 }
 
 export function formatNetworkLabel(cluster: string) {

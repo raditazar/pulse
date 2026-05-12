@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
-import { app } from "./hono-app";
+import { app } from "./index";
 
 const PORT = Number(process.env.PORT ?? 8000);
 

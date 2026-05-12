@@ -44,6 +44,13 @@ export function explorerTxUrl(key: CheckoutChainKey, hash: string): string {
   }
 }
 
+export function isExplorerTxHash(key: CheckoutChainKey, hash: string): boolean {
+  if (key === "solana") {
+    return /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(hash);
+  }
+  return /^0x[0-9a-fA-F]{64}$/.test(hash);
+}
+
 export function explorerName(key: CheckoutChainKey): string {
   switch (key) {
     case "solana":

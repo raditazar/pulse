@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../lib/env";
 import { bigintToString } from "../lib/http";
+import { supabase } from "../lib/supabase";
 import { fundIfNeeded, getFunderAddress } from "../services/funder";
 import { createMerchantSession } from "../services/session-service";
 import {
@@ -22,6 +23,7 @@ const createMerchantSchema = z.object({
   primaryBeneficiary: z.string().min(32),
   splitBasisPoints: z.number().int().min(0).max(10_000).default(1000),
   metadataUri: z.string().optional(),
+  profilePhotoUrl: z.string().url().optional(),
   name: z.string().optional(),
   walletAddress: z.string().min(32).optional(),
   usdcTokenAccount: z.string().min(32).optional(),
@@ -41,6 +43,7 @@ const createMerchantSchema = z.object({
 const updateMerchantSchema = z.object({
   name: z.string().min(1).optional(),
   metadataUri: z.string().nullable().optional(),
+  profilePhotoUrl: z.string().url().nullable().optional(),
   walletAddress: z.string().min(32).optional(),
   usdcTokenAccount: z.string().min(32).optional(),
   primaryBeneficiary: z.string().min(32).optional(),
@@ -78,6 +81,9 @@ const createLatestSessionSchema = z
     message: "amountUsdc or amountUsdcUnits is required",
     path: ["amountUsdc"],
   });
+
+const profilePhotoBucket =
+  process.env.SUPABASE_MERCHANT_ASSETS_BUCKET ?? "merchant-assets";
 
 function amountUsdcToUnits(amountUsdc: string) {
   const [whole, fraction = ""] = amountUsdc.split(".");
@@ -231,6 +237,49 @@ merchants.patch("/:id", async (c) => {
     walletAddress: updated.walletAddress,
     usdcTokenAccount: updated.usdcTokenAccount,
     platformFeeBps: updated.platformFeeBps,
+  });
+});
+
+merchants.post("/:id/profile-photo", async (c) => {
+  const id = c.req.param("id");
+  const merchant = await findMerchantByRef(id);
+  if (!merchant) {
+    return c.json({ error: "Merchant not found" }, 404);
+  }
+
+  const formData = await c.req.formData().catch(() => null);
+  const file = formData?.get("file");
+  if (!(file instanceof File)) {
+    return c.json({ error: "Profile photo file is required" }, 400);
+  }
+  if (!file.type.startsWith("image/")) {
+    return c.json({ error: "Profile photo must be an image" }, 400);
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    return c.json({ error: "Profile photo must be 2MB or smaller" }, 400);
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const objectPath = `merchant-profile-photos/${merchant.id}-${Date.now()}.${extension}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const upload = await supabase.storage.from(profilePhotoBucket).upload(objectPath, bytes, {
+    contentType: file.type,
+    upsert: true,
+  });
+
+  if (upload.error) {
+    return c.json({ error: upload.error.message }, 500);
+  }
+
+  const { data } = supabase.storage.from(profilePhotoBucket).getPublicUrl(objectPath);
+  const updated = await prisma.merchant.update({
+    where: { id: merchant.id },
+    data: { profilePhotoUrl: data.publicUrl },
+  });
+
+  return c.json({
+    merchant: mapMerchantRecord(updated),
+    profilePhotoUrl: data.publicUrl,
   });
 });
 

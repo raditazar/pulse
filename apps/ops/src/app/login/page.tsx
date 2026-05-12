@@ -138,17 +138,32 @@ export default function MerchantAuthPage() {
     const reduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
+    if (reduced) {
+      gsap.set(pageTransitionRef.current, { autoAlpha: 0, display: "none" });
+      gsap.set(pageContentRef.current, { autoAlpha: 1, y: 0 });
+      return;
+    }
+
+    const revealLogin = () => {
+      gsap.set(pageTransitionRef.current, { autoAlpha: 0, display: "none" });
+      gsap.set(pageContentRef.current, { autoAlpha: 1, y: 0 });
+    };
+
+    const fallback = window.setTimeout(revealLogin, 1400);
 
     const ctx = gsap.context(() => {
       gsap.set(pageContentRef.current, { autoAlpha: 0, y: 10 });
       gsap.set(pageTransitionRef.current, {
         autoAlpha: 1,
+        display: "block",
         scale: 1,
         filter: "blur(0px) contrast(1.35)",
       });
       gsap
-        .timeline({ defaults: { ease: "power3.out" } })
+        .timeline({
+          defaults: { ease: "power3.out" },
+          onComplete: revealLogin,
+        })
         .to(pageTransitionRef.current, {
           autoAlpha: 0,
           scale: 1.04,
@@ -166,7 +181,11 @@ export default function MerchantAuthPage() {
         );
     });
 
-    return () => ctx.revert();
+    return () => {
+      window.clearTimeout(fallback);
+      ctx.revert();
+      revealLogin();
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -330,6 +349,8 @@ export default function MerchantAuthPage() {
         ref={pageTransitionRef}
         className="pointer-events-none fixed inset-0 z-50 bg-[#050506]"
         style={{
+          opacity: 0,
+          visibility: "hidden",
           backgroundImage:
             "radial-gradient(circle at 18% 24%, rgba(255,255,255,0.26) 0 1px, transparent 1.5px), radial-gradient(circle at 72% 18%, rgba(255,255,255,0.2) 0 1px, transparent 1.5px), radial-gradient(circle at 36% 76%, rgba(255,255,255,0.18) 0 1px, transparent 1.5px), radial-gradient(circle at 84% 68%, rgba(255,255,255,0.24) 0 1px, transparent 1.5px)",
           backgroundSize: "18px 18px, 23px 23px, 29px 29px, 35px 35px",

@@ -17,6 +17,7 @@ model Merchant {
   splitBasisPoints   Int        @default(1000) @map("split_basis_points")
   splitBeneficiaries Json       @default("[]") @map("split_beneficiaries")
   metadataUri        String?    @map("metadata_uri")
+  profilePhotoUrl    String?    @map("profile_photo_url")
   name               String?
   walletAddress      String     @default("") @map("wallet_address")
   usdcTokenAccount   String     @default("") @map("usdc_token_account")

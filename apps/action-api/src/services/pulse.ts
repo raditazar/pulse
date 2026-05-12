@@ -47,6 +47,7 @@ export function mapMerchantRecord(merchant: Merchant): PulseMerchantRecord {
       ? (merchant.splitBeneficiaries as PulseMerchantRecord["splitBeneficiaries"])
       : [],
     metadataUri: merchant.metadataUri,
+    profilePhotoUrl: merchant.profilePhotoUrl,
     name: merchant.name,
     walletAddress: merchant.walletAddress,
     usdcTokenAccount: merchant.usdcTokenAccount,
@@ -68,6 +69,7 @@ export function mapSessionRecord(
     merchantPda: merchant.merchantPda,
     merchantId: merchant.id,
     amountUsdc: session.amountUsdc.toString(),
+    tokenMint: session.tokenMint,
     expiresAt: session.expiresAt.toISOString(),
     status: session.status as PulseSessionRecord["status"],
     checkoutPath: `/pay/${session.sessionPda}`,
@@ -91,6 +93,7 @@ export function buildCreateMerchantData(input: CreateMerchantInput) {
     splitBasisPoints: input.splitBasisPoints,
     splitBeneficiaries: input.splitBeneficiaries ?? [],
     metadataUri: input.metadataUri ?? null,
+    profilePhotoUrl: input.profilePhotoUrl ?? null,
     name: input.name ?? `Merchant ${authority.toBase58().slice(0, 6)}`,
     isActive: true,
   } satisfies Prisma.MerchantUncheckedCreateInput;

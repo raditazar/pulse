@@ -21,6 +21,7 @@ import {
   chainLabel,
   explorerName,
   explorerTxUrl,
+  isExplorerTxHash,
   isEvmChain,
   type CheckoutChainKey,
 } from "@/lib/chain";
@@ -47,6 +48,7 @@ function getSessionView(session: CheckoutSessionResponse, chain: CheckoutChainKe
   return {
     merchantName: session.merchant.name ?? "Pulse Merchant",
     merchantAddress: `${session.merchant.merchantPda.slice(0, 6)}…${session.merchant.merchantPda.slice(-6)}`,
+    merchantProfilePhotoUrl: session.merchant.profilePhotoUrl ?? null,
     networkLabel: `${chainLabel(chain)}${settleSuffix}`,
     totalLabel: formatUsdc(safeTotal),
     itemPriceLabel: formatUsdc(safeTotal),
@@ -95,9 +97,11 @@ function PaymentBreakdown({
         </span>
       </div>
       <div className="mt-3 rounded-control border border-purple/20 bg-lavender px-3 py-2 text-[11px] font-semibold leading-relaxed text-purple">
-        {feeQuote?.status === "ready" && "includesApprovalGas" in feeQuote && feeQuote.includesApprovalGas
-          ? "Tip: this gas estimate includes a one-time token approval. For faster confirmation and lower network fees, choose the Solana chain."
-          : "Tip: for faster confirmation and lower network fees, choose the Solana chain."}
+        {isEvmChain(chain)
+          ? feeQuote?.status === "ready" && "includesApprovalGas" in feeQuote && feeQuote.includesApprovalGas
+            ? "Tip: this gas estimate includes a one-time token approval. For faster confirmation and lower network fees, choose the Solana chain."
+            : "Tip: for faster confirmation and lower network fees, choose the Solana chain."
+          : "Tip: Solana payments use Circle devnet USDC and require a small SOL balance for gas."}
       </div>
       <div className="mt-4">
         <AlertInfo>
@@ -123,28 +127,21 @@ function DevnetFundsCard({
   if (!isEvmChain(chain)) {
     return (
       <div className="rounded-control border border-border bg-surface px-3.5 py-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-3">
+          <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
               Devnet funds
             </div>
             <div className="mt-1 text-[12px] leading-relaxed text-muted">
-              Request devnet SOL for gas. Use Circle faucet for devnet USDC.
+              Use Circle faucet for devnet USDC. Keep a small amount of devnet SOL in your wallet for gas.
             </div>
           </div>
-          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-            <SecondaryButton
-              onClick={onFaucet}
-              disabled={!onFaucet || pending}
-              className="px-3 py-2.5 text-[12px] sm:w-auto"
-            >
-              {pending ? "Requesting..." : "Get 1 devnet SOL"}
-            </SecondaryButton>
+          <div className="grid grid-cols-1 gap-2">
             <a
               href="https://faucet.circle.com/"
               target="_blank"
               rel="noreferrer"
-              className="focus-ring inline-flex w-full items-center justify-center rounded-control border-[1.5px] border-border bg-bg px-3 py-2.5 text-[12px] font-bold text-text transition-colors hover:bg-lavender sm:w-auto"
+              className="focus-ring inline-flex min-h-11 w-full items-center justify-center rounded-control border-[1.5px] border-border bg-bg px-3 py-2.5 text-center text-[12px] font-bold text-text transition-colors hover:bg-lavender"
             >
               Get devnet USDC
             </a>
@@ -208,6 +205,8 @@ export function CheckoutScreen({
   availableChains = ["solana"],
   onChainSelect,
   feeQuote,
+  paymentDisabled,
+  paymentLabel,
   onFaucet,
   faucetPending,
   faucetMessage,
@@ -219,6 +218,8 @@ export function CheckoutScreen({
   availableChains?: CheckoutChainKey[];
   onChainSelect?: (key: CheckoutChainKey) => void;
   feeQuote?: CheckoutFeeQuote;
+  paymentDisabled?: boolean;
+  paymentLabel?: string;
   onFaucet?: () => void;
   faucetPending?: boolean;
   faucetMessage?: string | null;
@@ -240,7 +241,11 @@ export function CheckoutScreen({
             onClick={onBack}
             className="text-white/85 hover:bg-white/12 hover:text-white"
           />
-          <MerchantCard name={view.merchantName} address={view.merchantAddress} />
+          <MerchantCard
+            name={view.merchantName}
+            address={view.merchantAddress}
+            imageUrl={view.merchantProfilePhotoUrl}
+          />
         </div>
       </div>
 
@@ -273,7 +278,11 @@ export function CheckoutScreen({
         />
 
         <div className="mt-auto flex flex-col gap-2.5 pt-3">
-          <BuyerPaymentAction onPay={onPay} />
+          <BuyerPaymentAction
+            onPay={onPay}
+            disabled={paymentDisabled}
+            pendingLabel={paymentLabel}
+          />
         </div>
       </div>
     </div>
@@ -373,14 +382,18 @@ export function SuccessScreen({
   const [copied, setCopied] = useState(false);
   const view = getSessionView(session, chain);
   const explorerLabel = explorerName(chain);
+  const hasExplorerTx = isExplorerTxHash(chain, txSignature);
+  const txDisplay = txSignature || "Transaction pending";
 
   const handleCopySignature = async () => {
+    if (!txSignature) return;
     await navigator.clipboard?.writeText(txSignature);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
 
   const handleOpenExplorer = () => {
+    if (!hasExplorerTx) return;
     window.open(explorerTxUrl(chain, txSignature), "_blank", "noopener,noreferrer");
   };
 
@@ -427,10 +440,11 @@ export function SuccessScreen({
               <button
                 type="button"
                 onClick={handleCopySignature}
+                disabled={!txSignature}
                 className="focus-ring num inline-flex min-w-0 max-w-[170px] items-center gap-1.5 rounded-[6px] font-semibold text-text hover:text-purple"
                 aria-label="Copy transaction signature"
               >
-                <span className="truncate">{txSignature}</span>
+                <span className="truncate">{txDisplay}</span>
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-bg text-muted">
                   <CopyIcon size={10} />
                 </span>
@@ -448,7 +462,13 @@ export function SuccessScreen({
 
       <div className="mt-4 flex flex-col gap-2">
         <PrimaryButton onClick={onDone}>Back to Merchant</PrimaryButton>
-        <SecondaryButton onClick={handleOpenExplorer}>View on {explorerLabel}</SecondaryButton>
+        {hasExplorerTx ? (
+          <SecondaryButton onClick={handleOpenExplorer}>View on {explorerLabel}</SecondaryButton>
+        ) : (
+          <div className="rounded-control border border-border bg-bg px-3 py-2.5 text-center text-[12px] font-semibold text-muted">
+            Explorer link is unavailable for this dev mock transaction.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -29,7 +29,7 @@ export function MerchantPrivyProvider({ children }: { children: ReactNode }) {
           accentColor: "#9945FF",
           theme: "light",
           walletChainType: "solana-only",
-          walletList: ["phantom", "solflare", "wallet_connect_qr_solana"],
+          walletList: ["phantom", "solflare"],
         },
         loginMethods: ["email", "google", "passkey", "wallet"],
         embeddedWallets: {

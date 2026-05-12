@@ -165,6 +165,7 @@ export type CreateMerchantSessionResponse = {
 export type UpdateMerchantInput = Partial<{
   name: string;
   metadataUri: string | null;
+  profilePhotoUrl: string | null;
   walletAddress: string;
   usdcTokenAccount: string;
   primaryBeneficiary: string;
@@ -181,6 +182,20 @@ export async function updateMerchant(
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+  });
+  const body = await parseJson<{ merchant: PulseMerchantRecord }>(response);
+  return body.merchant;
+}
+
+export async function uploadMerchantProfilePhoto(
+  merchantRef: string,
+  file: File,
+): Promise<PulseMerchantRecord> {
+  const formData = new FormData();
+  formData.set("file", file);
+  const response = await fetch(`${apiBase}/merchants/${merchantRef}/profile-photo`, {
+    method: "POST",
+    body: formData,
   });
   const body = await parseJson<{ merchant: PulseMerchantRecord }>(response);
   return body.merchant;

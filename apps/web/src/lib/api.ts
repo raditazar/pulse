@@ -60,7 +60,12 @@ type TerminalCheckoutResponse = {
   status: SessionStatus;
   merchant: {
     id: string;
+    merchantPda?: string;
     name: string | null;
+    profilePhotoUrl?: string | null;
+    primaryBeneficiary?: string;
+    splitBasisPoints?: number;
+    splitBeneficiaries?: PulseMerchantRecord["splitBeneficiaries"];
     walletAddress: string;
     usdcTokenAccount: string;
     platformFeeBps?: number;
@@ -88,13 +93,14 @@ function isTerminalCheckoutResponse(payload: unknown): payload is TerminalChecko
 function normalizeTerminalCheckout(payload: TerminalCheckoutResponse): CheckoutSessionResponse {
   const merchant = {
     id: payload.merchant.id,
-    merchantPda: payload.merchant.id,
+    merchantPda: payload.merchant.merchantPda ?? payload.merchant.id,
     privyUserId: "",
     authority: payload.merchant.walletAddress,
-    primaryBeneficiary: payload.merchant.walletAddress,
-    splitBasisPoints: payload.platformFeeBps,
-    splitBeneficiaries: [],
+    primaryBeneficiary: payload.merchant.primaryBeneficiary ?? payload.merchant.walletAddress,
+    splitBasisPoints: payload.merchant.splitBasisPoints ?? payload.platformFeeBps,
+    splitBeneficiaries: payload.merchant.splitBeneficiaries ?? [],
     name: payload.merchant.name,
+    profilePhotoUrl: payload.merchant.profilePhotoUrl ?? null,
     walletAddress: payload.merchant.walletAddress,
     usdcTokenAccount: payload.merchant.usdcTokenAccount,
     platformFeeBps: payload.merchant.platformFeeBps ?? payload.platformFeeBps,
@@ -108,6 +114,7 @@ function normalizeTerminalCheckout(payload: TerminalCheckoutResponse): CheckoutS
     merchantPda: merchant.merchantPda,
     merchantId: payload.merchantId,
     amountUsdc: unitsToUsdc(payload.amountUsdcUnits),
+    tokenMint: payload.tokenMint,
     expiresAt: payload.expiresAt,
     status: payload.status,
     checkoutPath: `/pay/${payload.sessionId}`,

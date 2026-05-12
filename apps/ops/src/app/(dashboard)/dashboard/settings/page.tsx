@@ -12,7 +12,7 @@ import {
   PanelHeading,
   SelectDropdown,
 } from "@/components/dashboard/primitives";
-import { updateMerchant } from "@/lib/api";
+import { updateMerchant, uploadMerchantProfilePhoto } from "@/lib/api";
 import { shortAddress } from "@/lib/dashboard-data";
 
 const timezones = [
@@ -45,6 +45,7 @@ export default function SettingsPage() {
       : "UTC",
   );
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [saveStatus, setSaveStatus] = useState("No unsaved changes.");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -52,6 +53,8 @@ export default function SettingsPage() {
     if (!merchant) return;
     setMerchantName(merchant.name ?? "Pulse Merchant");
     setBusinessType(merchant.businessType ?? "");
+    setProfilePhoto(merchant.profilePhotoUrl ?? null);
+    setProfilePhotoFile(null);
     setSaveStatus("No unsaved changes.");
   }, [merchant]);
 
@@ -63,8 +66,19 @@ export default function SettingsPage() {
 
     setIsSaving(true);
     try {
+      let nextProfilePhotoUrl = profilePhoto;
+      if (profilePhotoFile) {
+        const updated = await uploadMerchantProfilePhoto(merchant.id, profilePhotoFile);
+        nextProfilePhotoUrl = updated.profilePhotoUrl ?? null;
+        setProfilePhoto(nextProfilePhotoUrl);
+        setProfilePhotoFile(null);
+      }
+
       await updateMerchant(merchant.id, {
         name: merchantName.trim() || "Pulse Merchant",
+        profilePhotoUrl: nextProfilePhotoUrl?.startsWith("blob:")
+          ? merchant.profilePhotoUrl ?? null
+          : nextProfilePhotoUrl,
       });
       refetch();
       setSaveStatus(`Saved ${merchantName || "Pulse Merchant"} settings.`);
@@ -79,6 +93,7 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setProfilePhoto(URL.createObjectURL(file));
+    setProfilePhotoFile(file);
     setSaveStatus("Unsaved changes.");
   };
 
@@ -138,6 +153,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => {
                       setProfilePhoto(null);
+                      setProfilePhotoFile(null);
                       setSaveStatus("Unsaved changes.");
                     }}
                     className="focus-ring rounded-[8px] px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-text"

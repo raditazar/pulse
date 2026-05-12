@@ -101,6 +101,7 @@ export default function CreatePaymentPage() {
   };
 
   const handleCreateSession = async () => {
+    let createdSessionIdForCleanup: string | null = null;
     const validAmount = getValidAmount();
     if (!validAmount) {
       setStatusMessage("Enter an amount greater than 0 USDC.");
@@ -122,7 +123,7 @@ export default function CreatePaymentPage() {
     // The signer must match merchant.authority; the on-chain account enforces it.
     if (
       merchant.authority &&
-      merchant.authority.toLowerCase() !== cashierWallet.address.toLowerCase()
+      merchant.authority !== cashierWallet.address
     ) {
       setStatusMessage(
         `Connected wallet does not match this merchant authority. Expected ${merchant.authority.slice(0, 8)}..., got ${cashierWallet.address.slice(0, 8)}.... Switch back to the wallet used during merchant registration.`,
@@ -142,15 +143,15 @@ export default function CreatePaymentPage() {
         );
       }
 
-      const hasPda = await merchantPdaExists(cashierWallet.address);
+      const hasPda = await merchantPdaExists(merchant.authority);
       if (!hasPda) {
         setStatusMessage("Initializing Merchant on Solana (one-time setup)...");
         const initBuilt = await buildInitializeMerchantTxBytes({
-          authorityAddress: cashierWallet.address,
+          authorityAddress: merchant.authority,
           primaryBeneficiary: merchant.primaryBeneficiary,
           splitBeneficiaries: merchant.splitBeneficiaries ?? [],
           metadataUri:
-            merchant.metadataUri ?? `pulse://merchant/${cashierWallet.address}`,
+            merchant.metadataUri ?? `pulse://merchant/${merchant.authority}`,
         });
         await signAndSendTransaction({
           transaction: initBuilt.txBytes,
@@ -167,12 +168,13 @@ export default function CreatePaymentPage() {
         amountUsdc: validAmount,
         sourceChain: "solana",
       });
+      createdSessionIdForCleanup = created.sessionId;
       setStatusMessage(
         "Session created — initializing PaymentSession on Solana...",
       );
 
       const sessionBuilt = await buildCreateSessionTxBytes({
-        authorityAddress: cashierWallet.address,
+        authorityAddress: merchant.authority,
         sessionSeed: created.sessionSeed,
         amountUsdcUnits: BigInt(created.amountUsdcUnits),
         expiresAt: new Date(created.expiresAt),
@@ -189,8 +191,12 @@ export default function CreatePaymentPage() {
           wallet: cashierWallet,
           chain: "solana:devnet",
         });
+        await waitForAccountExists(sessionBuilt.sessionPda, {
+          timeoutMs: 30_000,
+        });
       }
 
+      createdSessionIdForCleanup = null;
       setCreatedSession(created.checkoutUrl);
       setTerminal(created.terminal);
       setStatusMessage(
@@ -203,6 +209,13 @@ export default function CreatePaymentPage() {
         error instanceof Error ? error.message : "Failed to create session";
       if (error instanceof CreateSessionPreflightError && error.hint) {
         message = `${message}\n${error.hint}`;
+      }
+      if (createdSessionIdForCleanup) {
+        await cancelSession(createdSessionIdForCleanup).catch((cancelError) => {
+          console.warn("[create-payment] failed to cancel uninitialized session:", cancelError);
+        });
+        loadPendingSessions();
+        message = `${message}\nThe database session was cancelled because the Solana PaymentSession account was not confirmed on-chain.`;
       }
       setStatusMessage(message);
     } finally {

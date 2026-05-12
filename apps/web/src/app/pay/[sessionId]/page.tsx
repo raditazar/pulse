@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useSignAndSendTransaction } from "@privy-io/react-auth/solana";
 import type { CheckoutSessionResponse } from "@pulse/types";
+import bs58 from "bs58";
 import { ClientPageTransition } from "@/components/checkout/ClientPageTransition";
 import { CheckoutShell } from "@/components/checkout/CheckoutShell";
 import {
@@ -15,7 +17,6 @@ import {
 } from "@/components/checkout/screens";
 import type { CheckoutPhase } from "@/components/checkout/types";
 import { useBuyerWalletConnection } from "@/components/checkout/BuyerWalletConnect";
-import { buildMockTxSignature } from "@/lib/mock-checkout";
 import {
   fetchCheckoutSession,
   recordCheckoutTransaction,
@@ -37,7 +38,7 @@ import {
   solanaCheckoutFeeQuote,
   type CheckoutFeeQuote,
 } from "@/lib/checkout-fees";
-import { requestSolanaDevnetSol } from "@/lib/solana-devnet-faucet";
+import { buildSolanaPayTxBytes } from "@/lib/solana-pay";
 
 export default function CheckoutSessionPage({
   params,
@@ -58,6 +59,7 @@ export default function CheckoutSessionPage({
   const [faucetMessage, setFaucetMessage] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
+  const { signAndSendTransaction } = useSignAndSendTransaction();
   const { ethereumWallet, solanaWallet, availableChains } = useBuyerWalletConnection();
 
   // Default to the connected wallet chain, with EVM first when both are present.
@@ -80,7 +82,10 @@ export default function CheckoutSessionPage({
     fetchCheckoutSession(sessionId)
       .then((payload) => {
         setSession(payload);
-        if (payload.session.status === "paid") {
+        if (
+          payload.session.status === "paid" ||
+          payload.session.status === "confirmed"
+        ) {
           setPhase("success");
           return;
         }
@@ -108,7 +113,7 @@ export default function CheckoutSessionPage({
   useEffect(() => {
     setFaucetMessage(null);
     setFaucetPending(false);
-  }, [checkoutChain, ethereumWallet?.address, solanaWallet?.address]);
+  }, [checkoutChain, ethereumWallet?.address]);
 
   useEffect(() => {
     if (!resolvedSession) {
@@ -160,35 +165,6 @@ export default function CheckoutSessionPage({
       cancelled = true;
     };
   }, [resolvedSession, checkoutChain, ethereumWallet?.address]);
-
-  const handleSolanaMockPay = async (payerAddress: string) => {
-    if (!resolvedSession) return;
-    setResultChain("solana");
-    setPhase("wallet");
-    const mockSignature = buildMockTxSignature();
-    setTxSignature(mockSignature);
-    window.setTimeout(async () => {
-      setPhase("processing");
-      try {
-        await recordCheckoutTransaction({
-          sessionId: resolvedSession.session.id,
-          sessionPda: resolvedSession.session.sessionPda,
-          txSignature: mockSignature,
-          payerAddress,
-          chain: "solana",
-          amountUsdc: resolvedSession.session.amountUsdc,
-          splitBreakdown: {
-            primaryBeneficiary: resolvedSession.merchant.primaryBeneficiary,
-            splitBasisPoints: String(resolvedSession.merchant.splitBasisPoints),
-          },
-        });
-        setPhase("success");
-      } catch (error) {
-        setErrorReason(error instanceof Error ? error.message : "Payment failed");
-        setPhase("error");
-      }
-    }, 1000);
-  };
 
   const handleEvmCrossChainPay = async (chain: "baseSepolia" | "arbSepolia") => {
     if (!resolvedSession || !ethereumWallet) {
@@ -256,43 +232,90 @@ export default function CheckoutSessionPage({
     }
   };
 
+  const handleSolanaPay = async (payerAddress?: string) => {
+    if (!resolvedSession || !solanaWallet) {
+      setErrorReason("Solana wallet is not connected.");
+      setPhase("error");
+      return;
+    }
+
+    setResultChain("solana");
+    setPhase("wallet");
+
+    try {
+      const txBytes = await buildSolanaPayTxBytes({
+        session: resolvedSession,
+        payerAddress: solanaWallet.address,
+      });
+
+      const result = await signAndSendTransaction({
+        transaction: txBytes,
+        wallet: solanaWallet,
+        chain: "solana:devnet",
+      });
+      const signature =
+        typeof result === "string"
+          ? result
+          : "signature" in result && result.signature instanceof Uint8Array
+            ? bs58.encode(result.signature)
+            : "signature" in result && typeof result.signature === "string"
+              ? result.signature
+            : "";
+
+      if (!signature) {
+        throw new Error("Solana wallet did not return a transaction signature");
+      }
+
+      setTxSignature(signature);
+      setPhase("processing");
+
+      await recordCheckoutTransaction({
+        sessionId: resolvedSession.session.id,
+        sessionPda: resolvedSession.session.sessionPda,
+        txSignature: signature,
+        payerAddress: payerAddress ?? solanaWallet.address,
+        chain: "solana",
+        amountUsdc: resolvedSession.session.amountUsdc,
+        tokenMint: resolvedSession.session.tokenMint,
+        splitBreakdown: {
+          primaryBeneficiary: resolvedSession.merchant.primaryBeneficiary,
+          splitBasisPoints: String(resolvedSession.merchant.splitBasisPoints),
+          sourceChain: "solana",
+        },
+      });
+
+      setPhase("success");
+    } catch (error) {
+      setErrorReason(error instanceof Error ? error.message : "Solana payment failed");
+      setPhase("error");
+    }
+  };
+
   const handlePay = async (payerAddress?: string) => {
     if (!resolvedSession) return;
     const chain = selectedChain ?? "solana";
     if (isEvmChain(chain)) {
       await handleEvmCrossChainPay(chain);
     } else {
-      await handleSolanaMockPay(payerAddress ?? "wallet-pending");
+      await handleSolanaPay(payerAddress);
     }
   };
 
   const handleFaucet = async () => {
+    if (!ethereumWallet || !isEvmChain(checkoutChain)) {
+      setFaucetMessage("Connect an EVM wallet first.");
+      return;
+    }
+
     setFaucetPending(true);
+    setFaucetMessage("Confirm the faucet transaction in your wallet.");
     try {
-      if (isEvmChain(checkoutChain)) {
-        if (!ethereumWallet) {
-          setFaucetMessage("Connect an EVM wallet first.");
-          return;
-        }
-
-        setFaucetMessage("Confirm the faucet transaction in your wallet.");
-        await faucetPmUsdc({
-          wallet: ethereumWallet,
-          chainKey: checkoutChain,
-          amountUsdc: "100",
-        });
-        setFaucetMessage(`100 pmUSDC minted on ${chainLabel(checkoutChain)}.`);
-        return;
-      }
-
-      if (!solanaWallet?.address) {
-        setFaucetMessage("Connect a Solana wallet first.");
-        return;
-      }
-
-      setFaucetMessage("Requesting 1 devnet SOL...");
-      await requestSolanaDevnetSol(solanaWallet.address, 1);
-      setFaucetMessage("1 devnet SOL added to your Solana wallet.");
+      await faucetPmUsdc({
+        wallet: ethereumWallet,
+        chainKey: checkoutChain,
+        amountUsdc: "100",
+      });
+      setFaucetMessage(`100 pmUSDC minted on ${chainLabel(checkoutChain)}.`);
     } catch (error) {
       setFaucetMessage(error instanceof Error ? error.message : "Faucet request failed.");
     } finally {
@@ -317,7 +340,7 @@ export default function CheckoutSessionPage({
             availableChains={chainsForUi}
             onChainSelect={setSelectedChain}
             feeQuote={feeQuote}
-            onFaucet={handleFaucet}
+            onFaucet={isEvmChain(checkoutChain) ? handleFaucet : undefined}
             faucetPending={faucetPending}
             faucetMessage={faucetMessage}
           />

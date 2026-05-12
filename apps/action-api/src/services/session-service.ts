@@ -3,6 +3,7 @@ import { Prisma } from "@pulse/database";
 import { PublicKey } from "@solana/web3.js";
 import {
   createRandomSessionSeed,
+  derivePulseMerchantPda,
   derivePulseSessionPda,
   encodeSessionSeed,
 } from "@pulse/solana";
@@ -10,9 +11,38 @@ import { env } from "../lib/env";
 
 const BPS_DENOMINATOR = 10_000n;
 
-export function calculateSplit(amountUsdcUnits: bigint, platformFeeBps: number) {
+type SplitBeneficiary = {
+  wallet: string;
+  bps: number;
+  label: string;
+};
+
+function getSplitBeneficiaries(value: unknown): SplitBeneficiary[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is SplitBeneficiary => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as Partial<SplitBeneficiary>;
+    return (
+      typeof candidate.wallet === "string" &&
+      typeof candidate.bps === "number" &&
+      Number.isInteger(candidate.bps) &&
+      candidate.bps > 0 &&
+      candidate.bps <= 10_000 &&
+      typeof candidate.label === "string"
+    );
+  });
+}
+
+export function calculateSplit(
+  amountUsdcUnits: bigint,
+  splitBeneficiaries: unknown,
+) {
+  const splitBps = getSplitBeneficiaries(splitBeneficiaries).reduce(
+    (total, split) => total + split.bps,
+    0,
+  );
   const platformAmountUsdcUnits =
-    (amountUsdcUnits * BigInt(platformFeeBps)) / BPS_DENOMINATOR;
+    (amountUsdcUnits * BigInt(splitBps)) / BPS_DENOMINATOR;
   const merchantAmountUsdcUnits = amountUsdcUnits - platformAmountUsdcUnits;
 
   return {
@@ -56,7 +86,7 @@ export async function createMerchantSession(input: {
   db?: Pick<typeof prisma, "merchant" | "session">;
 }) {
   const db = input.db ?? prisma;
-  const merchant = await db.merchant.findUnique({
+  let merchant = await db.merchant.findUnique({
     where: { id: input.merchantId },
   });
 
@@ -64,7 +94,19 @@ export async function createMerchantSession(input: {
     throw new Error("MERCHANT_NOT_FOUND");
   }
 
-  const split = calculateSplit(input.amountUsdcUnits, merchant.platformFeeBps);
+  const programId = new PublicKey(env.PULSE_PAYMENT_PROGRAM_ID);
+  const authority = new PublicKey(merchant.authority);
+  const [expectedMerchantPda] = derivePulseMerchantPda(authority, programId);
+  const expectedMerchantPdaBase58 = expectedMerchantPda.toBase58();
+
+  if (merchant.merchantPda !== expectedMerchantPdaBase58) {
+    merchant = await db.merchant.update({
+      where: { id: merchant.id },
+      data: { merchantPda: expectedMerchantPdaBase58 },
+    });
+  }
+
+  const split = calculateSplit(input.amountUsdcUnits, merchant.splitBeneficiaries);
 
   // Generate proper 32-byte session seed (DB schema default = gen_random_uuid()
   // bukan format yang valid untuk Solana PDA + EVM bytes32, jadi kita override).
@@ -74,7 +116,7 @@ export async function createMerchantSession(input: {
   const [sessionPda] = derivePulseSessionPda(
     merchantPda,
     sessionSeedBytes,
-    new PublicKey(env.PULSE_PAYMENT_PROGRAM_ID),
+    programId,
   );
 
   return db.session.create({
@@ -87,7 +129,10 @@ export async function createMerchantSession(input: {
       amountUsdcUnits: input.amountUsdcUnits,
       merchantAmountUsdcUnits: split.merchantAmountUsdcUnits,
       platformAmountUsdcUnits: split.platformAmountUsdcUnits,
-      platformFeeBps: merchant.platformFeeBps,
+      platformFeeBps: getSplitBeneficiaries(merchant.splitBeneficiaries).reduce(
+        (total, splitBeneficiary) => total + splitBeneficiary.bps,
+        0,
+      ),
       sourceChain: input.sourceChain ?? "solana",
       settlementChain: "solana",
       tokenMint: env.USDC_MINT,

@@ -3,6 +3,11 @@ import { PublicKey } from "@solana/web3.js";
 import { env, getPlatformUsdcTokenAccount } from "../lib/env";
 import { solanaConnection } from "../lib/solana";
 
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+);
+
 type ParsedTx = NonNullable<
   Awaited<ReturnType<typeof solanaConnection.getParsedTransaction>>
 >;
@@ -77,6 +82,17 @@ function getTokenAccountDelta(tx: ParsedTx, tokenAccount: string, mint: string) 
   return post - pre;
 }
 
+function getAssociatedTokenAddress(mint: string, owner: string) {
+  return PublicKey.findProgramAddressSync(
+    [
+      new PublicKey(owner).toBuffer(),
+      TOKEN_PROGRAM_ID.toBuffer(),
+      new PublicKey(mint).toBuffer(),
+    ],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )[0].toBase58();
+}
+
 async function markSessionFailed(sessionId: string) {
   await prisma.session.update({
     where: { id: sessionId },
@@ -91,8 +107,6 @@ export async function verifySmartContractPayment(input: {
   sourceChain?: string;
   sourceTxHash?: string;
 }): Promise<VerificationResult> {
-  const platformUsdcTokenAccount = getPlatformUsdcTokenAccount();
-
   const session = await prisma.session.findUnique({
     where: { id: input.sessionId },
     include: { merchant: true },
@@ -183,12 +197,15 @@ export async function verifySmartContractPayment(input: {
     return { status: "failed", reason: "Payer address does not match fee payer" };
   }
 
-  const merchantDelta = getTokenAccountDelta(
-    tx,
-    session.merchant.usdcTokenAccount,
-    env.USDC_MINT
+  const primaryBeneficiaryAta = getAssociatedTokenAddress(
+    env.USDC_MINT,
+    session.merchant.primaryBeneficiary,
   );
-  const platformDelta = getTokenAccountDelta(tx, platformUsdcTokenAccount, env.USDC_MINT);
+  const merchantDelta = getTokenAccountDelta(tx, primaryBeneficiaryAta, env.USDC_MINT);
+  const platformDelta =
+    session.platformAmountUsdcUnits > 0n
+      ? getTokenAccountDelta(tx, getPlatformUsdcTokenAccount(), env.USDC_MINT)
+      : 0n;
 
   if (merchantDelta !== session.merchantAmountUsdcUnits) {
     await markSessionFailed(session.id);

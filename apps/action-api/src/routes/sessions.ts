@@ -66,7 +66,12 @@ function serializeSession(session: SessionWithMerchant) {
     status: session.status,
     merchant: {
       id: session.merchant.id,
+      merchantPda: session.merchant.merchantPda,
       name: session.merchant.name,
+      profilePhotoUrl: session.merchant.profilePhotoUrl,
+      primaryBeneficiary: session.merchant.primaryBeneficiary,
+      splitBasisPoints: session.merchant.splitBasisPoints,
+      splitBeneficiaries: session.merchant.splitBeneficiaries,
       walletAddress: session.merchant.walletAddress,
       usdcTokenAccount: session.merchant.usdcTokenAccount,
       platformFeeBps: session.merchant.platformFeeBps,

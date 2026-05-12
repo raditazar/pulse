@@ -39,6 +39,7 @@ export type PulseMerchantRecord = {
   splitBasisPoints: number;
   splitBeneficiaries: SplitBeneficiaryInput[];
   metadataUri?: string | null;
+  profilePhotoUrl?: string | null;
   name?: string | null;
   walletAddress: string;
   usdcTokenAccount: string;
@@ -65,6 +66,7 @@ export type CreateMerchantInput = {
   splitBasisPoints: number;
   name?: string;
   metadataUri?: string;
+  profilePhotoUrl?: string;
   splitBeneficiaries?: SplitBeneficiaryInput[];
 };
 
@@ -86,6 +88,7 @@ export type PulseSessionRecord = {
   merchantPda: string;
   merchantId?: string | null;
   amountUsdc: string;
+  tokenMint?: string;
   expiresAt: string;
   status: PulseSessionStatus;
   checkoutPath: string;

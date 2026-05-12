@@ -84,6 +84,13 @@ function amountUsdcToUnits(amountUsdc: string) {
   return BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0"));
 }
 
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 async function findMerchantByRef(id: string) {
   return prisma.merchant.findFirst({
     where: {
@@ -360,12 +367,12 @@ merchants.get("/:id/volume", async (c) => {
   for (let index = 0; index < query.data.days; index += 1) {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
-    const key = date.toISOString().slice(0, 10);
+    const key = localDateKey(date);
     buckets.set(key, { date: key, volumeUsdc: 0, transactions: 0 });
   }
 
   for (const tx of txs) {
-    const key = tx.confirmedAt.toISOString().slice(0, 10);
+    const key = localDateKey(tx.confirmedAt);
     const bucket = buckets.get(key);
     if (!bucket) continue;
     bucket.volumeUsdc += Number(tx.amountUsdc?.toString() ?? "0");

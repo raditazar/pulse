@@ -1,9 +1,8 @@
 /**
- * Init `PaymentSession` PDA di Solana — wajib dipanggil setelah action-api
- * bikin DB session, supaya relayer cross-chain bisa settle (relayer cari
- * PaymentSession via getProgramAccounts; account harus sudah di-init).
+ * Initialize the Solana PaymentSession PDA after action-api creates the DB
+ * session, so the cross-chain relayer can settle against an on-chain account.
  *
- * Sign by merchant authority (Privy Solana wallet di sisi cashier).
+ * Signed by the merchant authority wallet in the cashier flow.
  */
 
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
@@ -16,8 +15,12 @@ import {
 
 const SOLANA_RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+const PULSE_PAYMENT_PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_PULSE_PAYMENT_PROGRAM_ID ??
+    "2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF",
+);
 
-/** Minimum SOL untuk bayar rent + tx fee saat init PaymentSession (~0.0017 SOL). */
+/** Minimum SOL for rent + transaction fees when creating merchant/session PDAs. */
 const MIN_LAMPORTS_FOR_SESSION_INIT = 2_500_000; // 0.0025 SOL safety margin
 
 let cachedConnection: Connection | null = null;
@@ -31,14 +34,14 @@ export async function merchantPdaExists(
   authorityAddress: string,
 ): Promise<boolean> {
   const authority = new PublicKey(authorityAddress);
-  const [merchantPda] = derivePulseMerchantPda(authority);
+  const [merchantPda] = derivePulseMerchantPda(authority, PULSE_PAYMENT_PROGRAM_ID);
   const info = await getConnection().getAccountInfo(merchantPda, "confirmed");
   return info !== null;
 }
 
 export interface BuildInitMerchantTxInput {
   authorityAddress: string;
-  /** Default ke authority kalau tidak di-set. */
+  /** Defaults to authority when omitted. */
   primaryBeneficiary?: string;
   splitBeneficiaries?: Array<{ wallet: string; bps: number; label: string }>;
   metadataUri?: string;
@@ -66,17 +69,17 @@ export async function buildInitializeMerchantTxBytes(
       metadataUri:
         input.metadataUri ?? `pulse://merchant/${input.authorityAddress}`,
     },
-    { authority },
+    { authority, programId: PULSE_PAYMENT_PROGRAM_ID },
   );
 
   const connection = getConnection();
 
-  // Preflight: SOL cukup buat bayar Merchant rent (~0.002 SOL) + fee.
+  // Preflight: enough SOL for Merchant rent plus fees.
   const balance = await connection.getBalance(authority, "confirmed");
   if (balance < MIN_LAMPORTS_FOR_SESSION_INIT) {
     throw new CreateSessionPreflightError(
-      `SOL tidak cukup di wallet authority (${(balance / 1e9).toFixed(4)} SOL).`,
-      `Butuh minimal 0.0025 SOL untuk rent Merchant PDA + tx fee. Trigger /merchants/:id/fund atau airdrop manual.`,
+      `Authority wallet has insufficient SOL (${(balance / 1e9).toFixed(4)} SOL).`,
+      `At least 0.0025 SOL is required for Merchant PDA rent and transaction fees. Trigger /merchants/:id/fund or airdrop manually.`,
     );
   }
 
@@ -157,23 +160,21 @@ export async function buildCreateSessionTxBytes(
       amountUsdc: input.amountUsdcUnits,
       expiresAt: BigInt(Math.floor(input.expiresAt.getTime() / 1000)),
     },
-    { authority },
+    { authority, programId: PULSE_PAYMENT_PROGRAM_ID },
   );
 
   const connection = getConnection();
 
-  // Preflight 1: merchant PDA harus sudah di-init on-chain.
+  // Preflight 1: merchant PDA must already exist on-chain.
   const merchantInfo = await connection.getAccountInfo(merchantPda, "confirmed");
   if (!merchantInfo) {
     throw new CreateSessionPreflightError(
-      `Merchant PDA tidak ada on-chain di Solana devnet.`,
-      `Authority wallet (${input.authorityAddress.slice(0, 8)}…) belum pernah panggil initialize_merchant. Wallet ini cocok dengan merchant.authority di DB? Atau merchant Solana account belum dibuat.`,
+      "Merchant PDA does not exist on Solana devnet.",
+      `Authority wallet (${input.authorityAddress.slice(0, 8)}...) has not initialized the merchant account yet. Make sure this wallet matches merchant.authority in the database.`,
     );
   }
 
-  // Preflight 1b: kalau PaymentSession PDA SUDAH ada di-chain, skip create_session
-  // — kemungkinan tx dari attempt sebelumnya sudah landed (Privy retry, race,
-  // atau prev session). Reuse aja, tidak perlu re-init.
+  // Preflight 1b: if the PaymentSession PDA already exists, skip create_session.
   const sessionInfo = await connection.getAccountInfo(sessionPda, "confirmed");
   if (sessionInfo) {
     return {
@@ -183,12 +184,12 @@ export async function buildCreateSessionTxBytes(
     };
   }
 
-  // Preflight 2: SOL cukup untuk rent + tx fee.
+  // Preflight 2: enough SOL for rent plus fees.
   const balance = await connection.getBalance(authority, "confirmed");
   if (balance < MIN_LAMPORTS_FOR_SESSION_INIT) {
     throw new CreateSessionPreflightError(
-      `SOL tidak cukup di wallet authority (${(balance / 1e9).toFixed(4)} SOL).`,
-      `Butuh minimal 0.0025 SOL untuk rent PaymentSession + tx fee. Airdrop devnet: solana airdrop 1 ${input.authorityAddress} --url devnet`,
+      `Authority wallet has insufficient SOL (${(balance / 1e9).toFixed(4)} SOL).`,
+      `At least 0.0025 SOL is required for PaymentSession rent and transaction fees. Devnet airdrop: solana airdrop 1 ${input.authorityAddress} --url devnet`,
     );
   }
 
@@ -198,8 +199,7 @@ export async function buildCreateSessionTxBytes(
   tx.recentBlockhash = blockhash;
   tx.add(ix);
 
-  // Preflight 3: simulate dulu — tangkap program error sebelum Privy popup.
-  // Pakai `sigVerify: false` karena tx belum di-sign saat simulate.
+  // Preflight 3: simulate before opening the Privy signing popup.
   const sim = await connection.simulateTransaction(tx, undefined, false);
   if (sim.value.err) {
     const logs = (sim.value.logs ?? []).join("\n");

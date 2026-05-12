@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { Prisma, type Merchant, type Session } from "@pulse/database";
 import {
-  DEFAULT_PULSE_PROGRAM_ID,
   SOLANA_CLUSTER,
   createRandomSessionSeed,
   derivePulseMerchantPda,
@@ -21,9 +20,11 @@ import type {
   SolanaCluster,
 } from "@pulse/types";
 import { PublicKey } from "@solana/web3.js";
+import { env } from "../lib/env";
 
 const cluster = (process.env.PULSE_SOLANA_CLUSTER ?? SOLANA_CLUSTER) as SolanaCluster;
-const programId = DEFAULT_PULSE_PROGRAM_ID.toBase58();
+const pulsePaymentProgramId = new PublicKey(env.PULSE_PAYMENT_PROGRAM_ID);
+const programId = pulsePaymentProgramId.toBase58();
 
 export function pulseRuntime() {
   return {
@@ -78,7 +79,7 @@ export function mapSessionRecord(
 export function buildCreateMerchantData(input: CreateMerchantInput) {
   const authority = new PublicKey(input.authority);
   const primaryBeneficiary = new PublicKey(input.primaryBeneficiary);
-  const [merchantPda] = derivePulseMerchantPda(authority);
+  const [merchantPda] = derivePulseMerchantPda(authority, pulsePaymentProgramId);
 
   return {
     privyUserId: input.privyUserId,
@@ -103,7 +104,11 @@ export function buildCreateSessionData(
   const sessionSeed = input.sessionSeed
     ? normalizeSessionSeed(input.sessionSeed)
     : createRandomSessionSeed();
-  const [sessionPda] = derivePulseSessionPda(merchantPda, sessionSeed);
+  const [sessionPda] = derivePulseSessionPda(
+    merchantPda,
+    sessionSeed,
+    pulsePaymentProgramId,
+  );
   const expiresAt = input.expiresAt
     ? new Date(input.expiresAt)
     : new Date(Date.now() + 15 * 60 * 1000);

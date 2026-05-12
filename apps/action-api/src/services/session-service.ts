@@ -3,7 +3,6 @@ import { Prisma } from "@pulse/database";
 import { PublicKey } from "@solana/web3.js";
 import {
   createRandomSessionSeed,
-  derivePulseMerchantPda,
   derivePulseSessionPda,
   encodeSessionSeed,
 } from "@pulse/solana";
@@ -72,7 +71,11 @@ export async function createMerchantSession(input: {
   const sessionSeedBytes = createRandomSessionSeed();
   const sessionSeedHex = encodeSessionSeed(sessionSeedBytes);
   const merchantPda = new PublicKey(merchant.merchantPda);
-  const [sessionPda] = derivePulseSessionPda(merchantPda, sessionSeedBytes);
+  const [sessionPda] = derivePulseSessionPda(
+    merchantPda,
+    sessionSeedBytes,
+    new PublicKey(env.PULSE_PAYMENT_PROGRAM_ID),
+  );
 
   return db.session.create({
     data: {

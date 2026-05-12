@@ -1,7 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const DEFAULT_PULSE_PROGRAM_ID = new PublicKey(
-  process.env.PULSE_PROGRAM_ID ?? "2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF",
+  process.env.NEXT_PUBLIC_PULSE_PAYMENT_PROGRAM_ID ??
+    process.env.PULSE_PAYMENT_PROGRAM_ID ??
+    process.env.PULSE_PROGRAM_ID ??
+    "2q7mj25BboC3th75YesFFdcSR3e76a45mKKJukQXAUiF",
 );
 
 export const PULSE_CONFIG_SEED = Buffer.from("pulse-config");

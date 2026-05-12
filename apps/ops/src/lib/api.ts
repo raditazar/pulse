@@ -239,8 +239,8 @@ export interface FundMerchantResponse {
 }
 
 /**
- * Top-up SOL devnet ke merchant authority dari funding pool action-api.
- * Idempotent: kalau saldo cukup, return `funded: false`.
+ * Tops up the merchant authority with devnet SOL from the action-api funding pool.
+ * Idempotent: when the balance is sufficient, returns `funded: false`.
  */
 export async function fundMerchantSol(
   merchantRef: string,

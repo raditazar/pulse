@@ -41,7 +41,7 @@ export function VolumeChart({
   const maxValue = Math.max(...values);
   const range = maxValue - minValue || 1;
   const domainPadding = range * 0.08;
-  const ticks = [minValue, maxValue];
+  const ticks = minValue === maxValue ? [minValue] : [minValue, maxValue];
   const chartAnimationKey = chartPoints.map((point) => `${point.day}:${point.usdc}`).join("|");
 
   return (

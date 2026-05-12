@@ -2,6 +2,7 @@
 
 import { useConnectWallet, useLogin, useLogout, usePrivy } from "@privy-io/react-auth";
 import { useCreateWallet, useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
+import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
 import { CopyIcon } from "./icons";
 import { CtaButton, ReadonlyInput } from "./primitives";
 import { merchantPrivyAppId } from "./PrivyProvider";
@@ -13,7 +14,7 @@ function shortAddress(address: string) {
 export function useMerchantWalletState() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets, ready: walletsReady } = useSolanaWallets();
-  const wallet = wallets[0];
+  const wallet = getPreferredSolanaWallet(wallets);
   const ownerLabel = user?.email?.address ?? user?.google?.email ?? "Authenticated merchant";
 
   return {

@@ -20,6 +20,7 @@ import {
   merchantPdaExists,
   waitForAccountExists,
 } from "@/lib/init-solana-session";
+import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
 import { useMerchant } from "@/components/dashboard/MerchantProvider";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
@@ -32,7 +33,7 @@ import {
 import { formatTime, shortAddress } from "@/lib/dashboard-data";
 
 const createPaymentDefaults = {
-  amount: "3.13",
+  amount: "",
   description: "Counter payment",
 };
 
@@ -40,7 +41,7 @@ export default function CreatePaymentPage() {
   const { merchant } = useMerchant();
   const { wallets: solanaWallets } = useSolanaWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
-  const cashierWallet = solanaWallets[0];
+  const cashierWallet = getPreferredSolanaWallet(solanaWallets);
   const [amount, setAmount] = useState(createPaymentDefaults.amount);
   const [description, setDescription] = useState(
     createPaymentDefaults.description,
@@ -92,7 +93,20 @@ export default function CreatePaymentPage() {
     return parsed.toFixed(2);
   };
 
+  const getValidAmount = () => {
+    const normalized = normalizeAmount();
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return normalized;
+  };
+
   const handleCreateSession = async () => {
+    const validAmount = getValidAmount();
+    if (!validAmount) {
+      setStatusMessage("Enter an amount greater than 0 USDC.");
+      setConfirmOpen(false);
+      return;
+    }
     if (!merchant) {
       setStatusMessage("Merchant account not found. Please log in again.");
       setConfirmOpen(false);
@@ -100,19 +114,18 @@ export default function CreatePaymentPage() {
     }
     if (!cashierWallet) {
       setStatusMessage(
-        "Solana wallet belum connect. Login ulang dengan Phantom/Solflare.",
+        "No Solana wallet is connected. Connect Phantom or Solflare, then try again.",
       );
       setConfirmOpen(false);
       return;
     }
-    // Guard: signer wallet harus match merchant.authority — Anchor `has_one`
-    // constraint di create_session akan reject kalau tidak match.
+    // The signer must match merchant.authority; the on-chain account enforces it.
     if (
       merchant.authority &&
       merchant.authority.toLowerCase() !== cashierWallet.address.toLowerCase()
     ) {
       setStatusMessage(
-        `Wallet tidak match merchant authority. Expected ${merchant.authority.slice(0, 8)}…, got ${cashierWallet.address.slice(0, 8)}…. Login dengan wallet yang sama saat onboarding.`,
+        `Connected wallet does not match this merchant authority. Expected ${merchant.authority.slice(0, 8)}..., got ${cashierWallet.address.slice(0, 8)}.... Switch back to the wallet used during merchant registration.`,
       );
       setConfirmOpen(false);
       return;
@@ -121,10 +134,7 @@ export default function CreatePaymentPage() {
     setIsSubmitting(true);
     setStatusMessage(null);
     try {
-      // Step 1: top-up SOL devnet via funding pool. Idempotent — kalau saldo
-      // sudah cukup, no-op. Wajib supaya wallet bisa bayar rent + fee untuk
-      // initialize_merchant + create_session.
-      setStatusMessage("Checking SOL balance + top-up dari pool...");
+      setStatusMessage("Checking SOL balance and funding if needed...");
       const fundResult = await fundMerchantSol(merchant.id);
       if (fundResult.funded) {
         setStatusMessage(
@@ -132,8 +142,6 @@ export default function CreatePaymentPage() {
         );
       }
 
-      // Step 2: pastikan Merchant PDA sudah di-init on-chain. Existing user
-      // yang signup-nya cuma DB akan trigger init di sini (one-time tx).
       const hasPda = await merchantPdaExists(cashierWallet.address);
       if (!hasPda) {
         setStatusMessage("Initializing Merchant on Solana (one-time setup)...");
@@ -155,19 +163,14 @@ export default function CreatePaymentPage() {
         setStatusMessage("Merchant PDA initialized — creating session...");
       }
 
-      // Step 3: bikin DB session via action-api.
       const created = await createMerchantSession(merchant.id, {
-        amountUsdc: normalizeAmount(),
+        amountUsdc: validAmount,
         sourceChain: "solana",
       });
       setStatusMessage(
         "Session created — initializing PaymentSession on Solana...",
       );
 
-      // Step 4: init PaymentSession PDA on-chain. Wajib supaya relayer cross-chain
-      // bisa settle: relayer cari PaymentSession via getProgramAccounts;
-      // tanpa account ini, EVM pay tidak akan ke-settle ke merchant Solana.
-      // Helper return alreadyExists=true kalau PDA sudah ada — skip Privy popup.
       const sessionBuilt = await buildCreateSessionTxBytes({
         authorityAddress: cashierWallet.address,
         sessionSeed: created.sessionSeed,
@@ -258,6 +261,7 @@ export default function CreatePaymentPage() {
               <FieldLabel>Amount (USDC)</FieldLabel>
               <input
                 value={amount}
+                placeholder="0.00"
                 onChange={(event) => setAmount(event.target.value)}
                 className="w-full rounded-control border border-border bg-bg-soft px-3.5 py-3 text-[22px] font-extrabold text-text outline-none focus:border-purple"
                 aria-label="Payment amount in USDC"
@@ -296,8 +300,7 @@ export default function CreatePaymentPage() {
             <CtaButton
               className="mt-2"
               onClick={() => setConfirmOpen(true)}
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Create Payment Session
             </CtaButton>
 
@@ -312,8 +315,7 @@ export default function CreatePaymentPage() {
                 <button
                   type="button"
                   onClick={handleCopySession}
-                  className="focus-ring mt-2 rounded-[8px] border border-border bg-surface px-3 py-1.5 text-[11px] font-bold text-purple"
-                >
+                  className="focus-ring mt-2 rounded-[8px] border border-border bg-surface px-3 py-1.5 text-[11px] font-bold text-purple">
                   Copy Session Link
                 </button>
               </div>
@@ -376,8 +378,7 @@ export default function CreatePaymentPage() {
         description="Your cashier NFC will open this latest payment session for the next customer tap."
         confirmLabel={isSubmitting ? "Creating..." : "Create Session"}
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={handleCreateSession}
-      >
+        onConfirm={handleCreateSession}>
         <div className="rounded-control border border-border bg-bg-soft p-3 text-[12px]">
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted">Amount</span>
@@ -435,8 +436,7 @@ function PendingSessionRow({
           type="button"
           onClick={onCancel}
           disabled={isCancelling}
-          className="focus-ring shrink-0 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-error)] hover:border-[var(--color-error)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
+          className="focus-ring shrink-0 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-error)] hover:border-[var(--color-error)] disabled:cursor-not-allowed disabled:opacity-60">
           {isCancelling ? "Cancelling..." : "Cancel"}
         </button>
       </div>

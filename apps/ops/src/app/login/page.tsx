@@ -2,13 +2,17 @@
 
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useLogin, usePrivy } from "@privy-io/react-auth";
-import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
+import { useConnectWallet, useLogin, usePrivy } from "@privy-io/react-auth";
+import {
+  useCreateWallet as useCreateSolanaWallet,
+  useWallets as useSolanaWallets,
+} from "@privy-io/react-auth/solana";
 import gsap from "gsap";
 import { SegmentedToggle } from "@pulse/ui";
 import { merchantPrivyAppId } from "@/components/dashboard/PrivyProvider";
 import { PulseLogoImage } from "@/components/dashboard/PulseLogoImage";
 import { createMerchant, getMerchantMe } from "@/lib/api";
+import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
 
 function GoogleIcon() {
   return (
@@ -53,7 +57,7 @@ export default function MerchantAuthPage() {
   const router = useRouter();
   const { ready, authenticated, user } = usePrivy();
   const { wallets, ready: walletsReady } = useSolanaWallets();
-  const wallet = wallets[0];
+  const wallet = getPreferredSolanaWallet(wallets);
   const pageTransitionRef = useRef<HTMLDivElement>(null);
   const pageContentRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -217,6 +221,8 @@ export default function MerchantAuthPage() {
   }, [tab, registerStep]);
 
   const { login } = useLogin();
+  const { connectWallet } = useConnectWallet();
+  const { createWallet: createSolanaWallet } = useCreateSolanaWallet();
 
   const switchTab = (nextTab: Tab) => {
     if (nextTab === tab) return;
@@ -235,21 +241,49 @@ export default function MerchantAuthPage() {
     cardRef.current.style.overflow = "hidden";
   };
 
-  const handleLoginEmail = () => {
+  const ensureSolanaWalletForAuthenticatedUser = async () => {
+    if (!authenticated || wallet?.address) return;
+
+    setAuthStatusMessage("Creating your Solana wallet...");
+    try {
+      await createSolanaWallet();
+      setAuthStatusMessage("Preparing your Solana wallet...");
+    } catch (error) {
+      setAuthStatusMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to create your Solana wallet."
+      );
+    }
+  };
+
+  const handleLoginEmail = async () => {
     authModeRef.current = tab;
     setAuthStatusMessage(null);
+    if (authenticated) {
+      await ensureSolanaWalletForAuthenticatedUser();
+      return;
+    }
     login({ loginMethods: ["email"], walletChainType: "solana-only" });
   };
 
-  const handleLoginGoogle = () => {
+  const handleLoginGoogle = async () => {
     authModeRef.current = tab;
     setAuthStatusMessage(null);
+    if (authenticated) {
+      await ensureSolanaWalletForAuthenticatedUser();
+      return;
+    }
     login({ loginMethods: ["google"], walletChainType: "solana-only" });
   };
 
   const handleLoginWallet = () => {
     authModeRef.current = tab;
     setAuthStatusMessage(null);
+    if (authenticated) {
+      connectWallet({ walletChainType: "solana-only" });
+      return;
+    }
     login({ loginMethods: ["wallet"], walletChainType: "solana-only" });
   };
 

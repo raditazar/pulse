@@ -12,6 +12,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
 import type { PulseMerchantRecord } from "@pulse/types";
 import { getMerchantMe } from "@/lib/api";
+import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
 
 type MerchantContextValue = {
   merchant: PulseMerchantRecord | null;
@@ -25,7 +26,7 @@ const MerchantContext = createContext<MerchantContextValue | null>(null);
 export function MerchantProvider({ children }: { children: ReactNode }) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets, ready: walletsReady } = useSolanaWallets();
-  const wallet = wallets[0];
+  const wallet = getPreferredSolanaWallet(wallets);
 
   const [merchant, setMerchant] = useState<PulseMerchantRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);

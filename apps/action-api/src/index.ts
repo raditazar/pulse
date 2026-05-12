@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { handle } from "hono/vercel";
 import { sessions } from "./routes/sessions";
 import { transactions } from "./routes/transactions";
 import { merchants } from "./routes/merchants";
@@ -29,5 +28,5 @@ api.route("/merchants", merchants);
 api.route("/terminals", terminals);
 api.route("/tap", tap);
 
-export default handle(app);
+export default app;
 

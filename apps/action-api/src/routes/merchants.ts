@@ -1,7 +1,7 @@
 import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
-import { env } from "../lib/env";
+import { publicAppUrl } from "../lib/env";
 import { bigintToString } from "../lib/http";
 import { supabase } from "../lib/supabase";
 import { fundIfNeeded, getFunderAddress } from "../services/funder";
@@ -120,7 +120,7 @@ function serializeTerminal(terminal: {
     label: terminal.label,
     nfcCode: terminal.nfcCode,
     currentSessionId: terminal.currentSessionId,
-    tapUrl: `${env.NEXT_PUBLIC_APP_URL}/tap/${terminal.nfcCode}`,
+    tapUrl: `${publicAppUrl}/tap/${terminal.nfcCode}`,
     createdAt: terminal.createdAt.toISOString(),
     updatedAt: terminal.updatedAt.toISOString(),
   };
@@ -531,7 +531,7 @@ merchants.post("/:id/sessions", async (c) => {
       tokenDecimals: result.session.tokenDecimals,
       status: result.session.status,
       expiresAt: result.session.expiresAt.toISOString(),
-      checkoutUrl: `${env.NEXT_PUBLIC_APP_URL}/tap/${result.terminal.nfcCode}`,
+      checkoutUrl: `${publicAppUrl}/tap/${result.terminal.nfcCode}`,
     },
     201
   );

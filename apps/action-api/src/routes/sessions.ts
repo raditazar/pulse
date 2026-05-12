@@ -1,7 +1,7 @@
 import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
-import { env, getPlatformUsdcTokenAccount } from "../lib/env";
+import { env, getPlatformUsdcTokenAccount, publicAppUrl } from "../lib/env";
 import { bigintToString, parseJsonBody } from "../lib/http";
 import { verifySmartContractPayment } from "../services/payment-verifier";
 import {
@@ -112,7 +112,7 @@ sessions.post("/", async (c) => {
       return c.json(
         {
           ...serializeSession(session),
-          checkoutUrl: `${env.NEXT_PUBLIC_APP_URL}/pay/${session.id}`,
+          checkoutUrl: `${publicAppUrl}/pay/${session.id}`,
         },
         201
       );
@@ -157,7 +157,7 @@ sessions.post("/", async (c) => {
     });
   });
 
-  return c.json(buildCreateSessionResponse(session, merchant, env.NEXT_PUBLIC_APP_URL), 201);
+  return c.json(buildCreateSessionResponse(session, merchant, publicAppUrl), 201);
 });
 
 sessions.get("/:id/status", async (c) => {

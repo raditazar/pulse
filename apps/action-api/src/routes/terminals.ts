@@ -1,7 +1,7 @@
 import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
-import { env } from "../lib/env";
+import { publicAppUrl } from "../lib/env";
 import { bigintToString, parseJsonBody } from "../lib/http";
 import { createMerchantSession } from "../services/session-service";
 
@@ -45,7 +45,7 @@ terminals.post("/", async (c) => {
       merchantId: terminal.merchantId,
       label: terminal.label,
       nfcCode: terminal.nfcCode,
-      tapUrl: `${env.NEXT_PUBLIC_APP_URL}/tap/${terminal.nfcCode}`,
+      tapUrl: `${publicAppUrl}/tap/${terminal.nfcCode}`,
     },
     201
   );
@@ -68,7 +68,7 @@ terminals.get("/:id", async (c) => {
     label: terminal.label,
     nfcCode: terminal.nfcCode,
     currentSessionId: terminal.currentSessionId,
-    tapUrl: `${env.NEXT_PUBLIC_APP_URL}/tap/${terminal.nfcCode}`,
+    tapUrl: `${publicAppUrl}/tap/${terminal.nfcCode}`,
     merchant: {
       id: terminal.merchant.id,
       name: terminal.merchant.name,
@@ -132,7 +132,7 @@ terminals.post("/:id/sessions", async (c) => {
       tokenDecimals: session.tokenDecimals,
       status: session.status,
       expiresAt: session.expiresAt.toISOString(),
-      checkoutUrl: `${env.NEXT_PUBLIC_APP_URL}/tap/${terminal.nfcCode}`,
+      checkoutUrl: `${publicAppUrl}/tap/${terminal.nfcCode}`,
     },
     201
   );

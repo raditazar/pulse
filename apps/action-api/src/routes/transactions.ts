@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@pulse/database";
+import { Prisma, prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { bigintToString, parseJsonBody } from "../lib/http";
@@ -154,3 +154,4 @@ transactions.get("/:signature", async (c) => {
 });
 
 export { transactions };
+

@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
 import { PublicKey } from "@solana/web3.js";
 import { env, getPlatformUsdcTokenAccount } from "../lib/env";
 import { solanaConnection } from "../lib/solana";
@@ -280,3 +280,4 @@ export async function verifySmartContractPayment(input: {
     txSignature: input.txSignature,
   };
 }
+

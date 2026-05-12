@@ -2,26 +2,26 @@
   "name": "@pulse/action-api",
   "private": true,
   "scripts": {
-    "build": "pnpm --filter @pulse/database build && pnpm --filter @pulse/solana build && pnpm --filter @pulse/types build && tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.1",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "@pulse/database": "workspace:*",
-    "@pulse/solana": "workspace:*",
-    "@pulse/types": "workspace:*",
     "@solana/web3.js": "^1.98.4",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "dotenv": "^17.4.2",
     "hono": "^4.12.17",
+    "pg": "^8.20.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

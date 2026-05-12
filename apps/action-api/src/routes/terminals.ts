@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../lib/env";
@@ -139,3 +139,4 @@ terminals.post("/:id/sessions", async (c) => {
 });
 
 export { terminals };
+

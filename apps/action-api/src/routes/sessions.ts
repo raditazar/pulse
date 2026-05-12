@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { env, getPlatformUsdcTokenAccount } from "../lib/env";
@@ -301,3 +301,4 @@ sessions.get("/:id", async (c) => {
 });
 
 export { sessions };
+

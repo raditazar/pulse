@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../lib/env";
@@ -596,3 +596,4 @@ merchants.get("/:id/transactions", async (c) => {
 });
 
 export { merchants };
+

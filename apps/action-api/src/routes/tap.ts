@@ -1,4 +1,4 @@
-import { prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
 import { Hono } from "hono";
 import { env, getPlatformUsdcTokenAccount } from "../lib/env";
 import { bigintToString } from "../lib/http";
@@ -91,3 +91,4 @@ tap.get("/:nfcCode", async (c) => {
 });
 
 export { tap };
+

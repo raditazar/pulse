@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Prisma, type Merchant, type Session } from "@pulse/database";
+import { Prisma, type Merchant, type Session } from "../lib/database";
 import {
   SOLANA_CLUSTER,
   createRandomSessionSeed,
@@ -8,7 +8,7 @@ import {
   derivePulseSessionPda,
   encodeSessionSeed,
   normalizeSessionSeed,
-} from "@pulse/solana";
+} from "../lib/pulse-solana";
 import type {
   CheckoutSessionResponse,
   CreateMerchantInput,
@@ -18,7 +18,7 @@ import type {
   PulseMerchantRecord,
   PulseSessionRecord,
   SolanaCluster,
-} from "@pulse/types";
+} from "../lib/types";
 import { PublicKey } from "@solana/web3.js";
 import { env } from "../lib/env";
 
@@ -158,3 +158,4 @@ export function buildCreateSessionResponse(
     checkoutUrl: `${appUrl}${payload.session.checkoutPath}`,
   };
 }
+

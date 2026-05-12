@@ -1,12 +1,12 @@
-import { prisma } from "@pulse/database";
-import { Prisma } from "@pulse/database";
+import { prisma } from "../lib/database";
+import { Prisma } from "../lib/database";
 import { PublicKey } from "@solana/web3.js";
 import {
   createRandomSessionSeed,
   derivePulseMerchantPda,
   derivePulseSessionPda,
   encodeSessionSeed,
-} from "@pulse/solana";
+} from "../lib/pulse-solana";
 import { env } from "../lib/env";
 
 const BPS_DENOMINATOR = 10_000n;
@@ -143,3 +143,4 @@ export async function createMerchantSession(input: {
     include: { merchant: true },
   });
 }
+

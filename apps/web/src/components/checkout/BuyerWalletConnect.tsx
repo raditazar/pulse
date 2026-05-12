@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useActiveWallet,
   useConnectWallet,
   useLogin,
   usePrivy,
@@ -22,12 +23,10 @@ function shortAddress(address: string) {
 }
 
 export function availableChainsFor(
-  hasEvm: boolean,
-  hasSolana: boolean,
+  activeType: "ethereum" | "solana" | null,
 ): CheckoutChainKey[] {
-  if (hasEvm && hasSolana) return ["solana", "baseSepolia", "arbSepolia"];
-  if (hasEvm) return ["baseSepolia", "arbSepolia"];
-  if (hasSolana) return ["solana"];
+  if (activeType === "ethereum") return ["baseSepolia", "arbSepolia"];
+  if (activeType === "solana") return ["solana"];
   return [];
 }
 
@@ -43,6 +42,7 @@ export interface BuyerWalletConnectionState {
   walletAddress: string | undefined;
   walletName: string | undefined;
   handleWalletAction: () => void;
+  handleChangeWallet: () => void;
 }
 
 export function useBuyerWalletConnection(
@@ -50,16 +50,51 @@ export function useBuyerWalletConnection(
 ): BuyerWalletConnectionState {
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin();
-  const { connectWallet } = useConnectWallet();
+  const { wallet: activeWallet, setActiveWallet } = useActiveWallet();
+  const { connectWallet } = useConnectWallet({
+    onSuccess: ({ wallet }) => {
+      setActiveWallet(wallet);
+    },
+  });
   const { wallets: ethereumWallets } = useEthereumWallets();
   const { wallets: solanaWallets } = useSolanaWalletsPrivy();
-  const ethereumWallet = ethereumWallets[0];
-  const solanaWallet = solanaWallets[0];
+  const activeEthereumWallet =
+    activeWallet?.type === "ethereum"
+      ? ethereumWallets.find(
+          (wallet) => wallet.address.toLowerCase() === activeWallet.address.toLowerCase(),
+        )
+      : undefined;
+  const activeSolanaWallet =
+    activeWallet?.type === "solana"
+      ? solanaWallets.find((wallet) => wallet.address === activeWallet.address)
+      : undefined;
+  const ethereumWallet = activeEthereumWallet ?? ethereumWallets.at(-1);
+  const solanaWallet = activeSolanaWallet ?? solanaWallets.at(-1);
   const hasPaymentWallet = ethereumWallets.length > 0 || solanaWallets.length > 0;
-  // Prioritas EVM dulu kalau dua-duanya connect (default flow cross-chain).
-  const walletName = ethereumWallet?.meta.name ?? solanaWallet?.standardWallet.name;
-  const walletAddress = ethereumWallet?.address ?? solanaWallet?.address;
+  const activeType =
+    activeWallet?.type ??
+    (ethereumWallet ? "ethereum" : solanaWallet ? "solana" : null);
+  const selectedWallet = activeType === "solana" ? solanaWallet : ethereumWallet;
+  const walletName =
+    selectedWallet && "meta" in selectedWallet
+      ? selectedWallet.meta.name
+      : selectedWallet?.standardWallet.name;
+  const walletAddress = selectedWallet?.address;
   const label = walletName ?? (authenticated ? "Choose a payment wallet" : "Not connected");
+
+  const handleChangeWallet = () => {
+    if (!ready) return;
+    if (!authenticated) {
+      login({
+        loginMethods: ["wallet", "email", "google", "passkey"],
+        walletChainType: "ethereum-and-solana",
+      });
+      return;
+    }
+    connectWallet({
+      walletChainType: "ethereum-and-solana",
+    });
+  };
 
   const handleWalletAction = () => {
     if (!ready) return;
@@ -70,27 +105,28 @@ export function useBuyerWalletConnection(
       });
       return;
     }
-    if (!hasPaymentWallet) {
+    if (!selectedWallet) {
       connectWallet({
         walletChainType: "ethereum-and-solana",
       });
       return;
     }
-    onPay?.(ethereumWallet?.address ?? solanaWallet?.address);
+    onPay?.(selectedWallet?.address);
   };
 
   return {
     ready,
     authenticated,
     hasPaymentWallet,
-    hasWallet: Boolean(ethereumWallet || solanaWallet),
+    hasWallet: Boolean(selectedWallet),
     ethereumWallet,
     solanaWallet,
-    availableChains: availableChainsFor(Boolean(ethereumWallet), Boolean(solanaWallet)),
+    availableChains: availableChainsFor(activeType),
     label,
     walletAddress: walletAddress ? shortAddress(walletAddress) : undefined,
     walletName,
     handleWalletAction,
+    handleChangeWallet,
   };
 }
 
@@ -110,13 +146,13 @@ export function BuyerWalletField() {
 }
 
 function ConnectedBuyerWalletField() {
-  const { ready, hasWallet, label, walletAddress, walletName, handleWalletAction } =
+  const { ready, hasWallet, label, walletAddress, walletName, handleChangeWallet } =
     useBuyerWalletConnection();
 
   return (
     <button
       type="button"
-      onClick={handleWalletAction}
+      onClick={handleChangeWallet}
       disabled={!ready}
       aria-label="Connect payment wallet"
       className={`focus-ring w-full rounded-control border border-border bg-surface px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
@@ -178,12 +214,12 @@ function ConnectedBuyerPaymentAction({
   disabled?: boolean;
   pendingLabel?: string;
 }) {
-  const { ready, authenticated, hasPaymentWallet, handleWalletAction } =
+  const { ready, authenticated, hasWallet, handleWalletAction } =
     useBuyerWalletConnection(onPay);
 
   const label = pendingLabel
     ? pendingLabel
-    : hasPaymentWallet
+    : hasWallet
       ? "Approve Payment"
       : authenticated
         ? "Add Payment Wallet"

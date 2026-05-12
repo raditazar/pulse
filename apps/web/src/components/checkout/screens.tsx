@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { CheckoutSessionResponse } from "@pulse/types";
+import type { CheckoutFeeQuote } from "@/lib/checkout-fees";
 import {
   CopyIcon,
   LockIcon,
@@ -40,8 +41,6 @@ const stateIconBase = "mx-auto grid place-items-center rounded-full text-white";
 function getSessionView(session: CheckoutSessionResponse, chain: CheckoutChainKey = "solana") {
   const total = Number(session.session.amountUsdc);
   const safeTotal = Number.isFinite(total) ? total : 0;
-  const platformCut = (safeTotal * session.merchant.splitBasisPoints) / 10_000;
-  const merchantNet = Math.max(0, safeTotal - platformCut);
 
   const settleSuffix = isEvmChain(chain) ? " → Solana settle" : "";
 
@@ -50,22 +49,26 @@ function getSessionView(session: CheckoutSessionResponse, chain: CheckoutChainKe
     merchantAddress: `${session.merchant.merchantPda.slice(0, 6)}…${session.merchant.merchantPda.slice(-6)}`,
     networkLabel: `${chainLabel(chain)}${settleSuffix}`,
     totalLabel: formatUsdc(safeTotal),
-    merchantNetLabel: formatUsdc(merchantNet),
-    platformFeeLabel: formatUsdc(platformCut),
+    itemPriceLabel: formatUsdc(safeTotal),
   };
 }
 
 function PaymentBreakdown({
   session,
   chain = "solana",
+  feeQuote,
 }: {
   session: CheckoutSessionResponse;
   chain?: CheckoutChainKey;
+  feeQuote?: CheckoutFeeQuote;
 }) {
   const view = getSessionView(session, chain);
+  const gasFeeLabel = feeQuote?.gasFeeLabel ?? (isEvmChain(chain) ? "Connect wallet to estimate" : "< 0.00001 SOL");
+  const cctpFeeLabel = feeQuote?.cctpFeeLabel ?? (isEvmChain(chain) ? "Connect wallet to estimate" : "0 SOL");
   const breakdown = [
-    { label: "Amount to merchant", amount: view.merchantNetLabel },
-    { label: "Platform fee", amount: view.platformFeeLabel },
+    { label: "Item price", amount: view.itemPriceLabel },
+    { label: "Estimated gas", amount: gasFeeLabel },
+    { label: "Estimated CCTP fee", amount: cctpFeeLabel },
   ];
 
   const lockMessage = isEvmChain(chain)
@@ -91,6 +94,11 @@ function PaymentBreakdown({
           {view.totalLabel}
         </span>
       </div>
+      <div className="mt-3 rounded-control border border-purple/20 bg-lavender px-3 py-2 text-[11px] font-semibold leading-relaxed text-purple">
+        {feeQuote?.status === "ready" && "includesApprovalGas" in feeQuote && feeQuote.includesApprovalGas
+          ? "Tip: this gas estimate includes a one-time token approval. For faster confirmation and lower network fees, choose the Solana chain."
+          : "Tip: for faster confirmation and lower network fees, choose the Solana chain."}
+      </div>
       <div className="mt-4">
         <AlertInfo>
           <LockIcon size={13} />
@@ -98,6 +106,84 @@ function PaymentBreakdown({
         </AlertInfo>
       </div>
     </section>
+  );
+}
+
+function DevnetFundsCard({
+  chain,
+  onFaucet,
+  pending = false,
+  message,
+}: {
+  chain: CheckoutChainKey;
+  onFaucet?: () => void;
+  pending?: boolean;
+  message?: string | null;
+}) {
+  if (!isEvmChain(chain)) {
+    return (
+      <div className="rounded-control border border-border bg-surface px-3.5 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              Devnet funds
+            </div>
+            <div className="mt-1 text-[12px] leading-relaxed text-muted">
+              Request devnet SOL for gas. Use Circle faucet for devnet USDC.
+            </div>
+          </div>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <SecondaryButton
+              onClick={onFaucet}
+              disabled={!onFaucet || pending}
+              className="px-3 py-2.5 text-[12px] sm:w-auto"
+            >
+              {pending ? "Requesting..." : "Get 1 devnet SOL"}
+            </SecondaryButton>
+            <a
+              href="https://faucet.circle.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="focus-ring inline-flex w-full items-center justify-center rounded-control border-[1.5px] border-border bg-bg px-3 py-2.5 text-[12px] font-bold text-text transition-colors hover:bg-lavender sm:w-auto"
+            >
+              Get devnet USDC
+            </a>
+          </div>
+        </div>
+        {message && (
+          <div className="mt-3 rounded-control border border-border bg-bg px-3 py-2 text-[11px] leading-relaxed text-muted">
+            {message}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-control border border-border bg-surface px-3.5 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+            Devnet funds
+          </div>
+          <div className="mt-1 text-[12px] leading-relaxed text-muted">
+            Mint test pmUSDC on {chainLabel(chain)} for checkout testing.
+          </div>
+        </div>
+        <SecondaryButton
+          onClick={onFaucet}
+          disabled={!onFaucet || pending}
+          className="w-full shrink-0 px-3 py-2.5 text-[12px] sm:w-auto"
+        >
+          {pending ? "Requesting..." : "Get 100 pmUSDC"}
+        </SecondaryButton>
+      </div>
+      {message && (
+        <div className="mt-3 rounded-control border border-border bg-bg px-3 py-2 text-[11px] leading-relaxed text-muted">
+          {message}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -121,6 +207,10 @@ export function CheckoutScreen({
   selectedChain = "solana",
   availableChains = ["solana"],
   onChainSelect,
+  feeQuote,
+  onFaucet,
+  faucetPending,
+  faucetMessage,
 }: {
   session: CheckoutSessionResponse;
   onPay?: (address?: string) => void;
@@ -128,6 +218,10 @@ export function CheckoutScreen({
   selectedChain?: CheckoutChainKey;
   availableChains?: CheckoutChainKey[];
   onChainSelect?: (key: CheckoutChainKey) => void;
+  feeQuote?: CheckoutFeeQuote;
+  onFaucet?: () => void;
+  faucetPending?: boolean;
+  faucetMessage?: string | null;
 }) {
   const view = getSessionView(session, selectedChain);
 
@@ -151,7 +245,7 @@ export function CheckoutScreen({
       </div>
 
       <div className="relative z-10 -mt-10">
-        <PaymentBreakdown session={session} chain={selectedChain} />
+        <PaymentBreakdown session={session} chain={selectedChain} feeQuote={feeQuote} />
       </div>
 
       <div className="flex flex-1 flex-col gap-3 pt-4">
@@ -170,6 +264,13 @@ export function CheckoutScreen({
             onSelect={(key) => onChainSelect?.(key)}
           />
         )}
+
+        <DevnetFundsCard
+          chain={selectedChain}
+          onFaucet={onFaucet}
+          pending={faucetPending}
+          message={faucetMessage}
+        />
 
         <div className="mt-auto flex flex-col gap-2.5 pt-3">
           <BuyerPaymentAction onPay={onPay} />

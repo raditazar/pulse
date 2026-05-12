@@ -1,7 +1,6 @@
 /**
- * Cross-chain pay orchestrator untuk Pulse — handle EVM approve + pay tx via
- * Privy ethereum wallet, dengan callback fase supaya UI bisa transition antar
- * screens (wallet popup → tx confirm → settle).
+ * Cross-chain pay orchestrator for Pulse. Handles EVM approval + payment
+ * transactions through the Privy Ethereum wallet and reports UI phases.
  */
 
 import {
@@ -15,6 +14,7 @@ import {
   approveUsdcMax,
   chainKeyFromId,
   getPulsePublicClient,
+  MockUSDCAbi,
   PULSE_EVM_ADDRESSES,
   pulseChains,
   quotePayNativeFee,
@@ -37,9 +37,9 @@ export type CrossChainPayPhase =
 export interface CrossChainPayInput {
   wallet: ConnectedWallet;
   chainKey: EvmChainKey;
-  /** 32-byte hex sessionId, dengan atau tanpa prefix 0x. */
+  /** 32-byte hex session id, with or without the 0x prefix. */
   sessionSeed: string;
-  /** Human amount string, mis. "1.50". */
+  /** Human-readable amount string, e.g. "1.50". */
   amountUsdc: string;
   onPhase?: (phase: CrossChainPayPhase) => void;
 }
@@ -51,6 +51,12 @@ export interface CrossChainPayResult {
   payTxHash: Hex;
   amountUnits: bigint;
   nativeFeeWei: bigint;
+}
+
+export interface FaucetPmUsdcInput {
+  wallet: ConnectedWallet;
+  chainKey: EvmChainKey;
+  amountUsdc?: string;
 }
 
 export class CrossChainPayError extends Error {
@@ -68,7 +74,7 @@ function normalizeSessionIdHex(value: string): Hex {
   const hex = value.startsWith("0x") ? value.slice(2) : value;
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
     throw new CrossChainPayError(
-      `sessionSeed harus 32-byte hex (64 karakter), got "${value}" (${hex.length} chars)`,
+      `sessionSeed must be a 32-byte hex string (64 characters), got "${value}" (${hex.length} chars)`,
       "validation",
     );
   }
@@ -79,10 +85,46 @@ function expectedChainIdFor(chainKey: EvmChainKey): number {
   return PULSE_EVM_ADDRESSES[chainKey].chainId;
 }
 
+async function buildWalletClientForChain(wallet: ConnectedWallet, chainKey: EvmChainKey) {
+  const expectedChainId = expectedChainIdFor(chainKey);
+  const walletChainId = Number(wallet.chainId?.split(":").pop() ?? 0);
+  if (walletChainId !== expectedChainId) {
+    await wallet.switchChain(expectedChainId);
+  }
+
+  const provider = await wallet.getEthereumProvider();
+  return createWalletClient({
+    account: wallet.address as Address,
+    chain: pulseChains[chainKey],
+    transport: custom(provider),
+  });
+}
+
+export async function faucetPmUsdc(input: FaucetPmUsdcInput): Promise<Hex> {
+  const cfg = PULSE_EVM_ADDRESSES[input.chainKey];
+  if (!cfg.mockUsdc) {
+    throw new CrossChainPayError(
+      `Missing MockUSDC address for ${input.chainKey}`,
+      "validation",
+    );
+  }
+
+  const walletClient = await buildWalletClientForChain(input.wallet, input.chainKey);
+  const hash = await walletClient.writeContract({
+    chain: walletClient.chain,
+    account: input.wallet.address as Address,
+    address: cfg.mockUsdc,
+    abi: MockUSDCAbi,
+    functionName: "faucet",
+    args: [parseUnits(input.amountUsdc ?? "100", 6)],
+  });
+  await getPulsePublicClient(input.chainKey).waitForTransactionReceipt({ hash });
+  return hash;
+}
+
 /**
- * Eksekusi flow lengkap: approve (jika perlu) + pay PulseSender. Tx
- * dikonfirmasi via publicClient supaya kita yakin EVM side selesai
- * sebelum show success.
+ * Executes the full flow: approve when needed, then pay PulseSender. The EVM
+ * transaction is confirmed before the checkout moves to success.
  */
 export async function executeCrossChainPay(
   input: CrossChainPayInput,
@@ -98,39 +140,31 @@ export async function executeCrossChainPay(
 
   const publicClient = getPulsePublicClient(chainKey);
 
-  // Pre-flight: pastikan saldo cukup sebelum minta wallet popup.
+  // Preflight: make sure balance is sufficient before opening the wallet popup.
   const balance = await readUsdcBalance(publicClient, chainKey, payer);
   if (balance < amountUnits) {
     throw new CrossChainPayError(
-      `Saldo pmUSDC tidak cukup: punya ${balance}, butuh ${amountUnits}`,
+      `Insufficient pmUSDC balance: available ${balance}, required ${amountUnits}`,
       "preflight",
     );
   }
 
-  // Switch chain di wallet jika belum match.
-  const walletChainId = Number(wallet.chainId?.split(":").pop() ?? 0);
-  if (walletChainId !== expectedChainId) {
+  if (Number(wallet.chainId?.split(":").pop() ?? 0) !== expectedChainId) {
     onPhase?.("switching-chain");
     try {
       await wallet.switchChain(expectedChainId);
     } catch (error) {
       throw new CrossChainPayError(
-        `Gagal switch wallet ke chain ${expectedChainId}`,
+        `Failed to switch wallet to chain ${expectedChainId}`,
         "switching-chain",
         error,
       );
     }
   }
 
-  // Build viem WalletClient dari EIP-1193 provider Privy.
-  const provider = await wallet.getEthereumProvider();
-  const walletClient = createWalletClient({
-    account: payer,
-    chain: pulseChains[chainKey],
-    transport: custom(provider),
-  });
+  const walletClient = await buildWalletClientForChain(wallet, chainKey);
 
-  // Approve jika allowance kurang.
+  // Approve when allowance is too low.
   const allowance = await readUsdcAllowance(publicClient, chainKey, payer, amountUnits);
   let approveTxHash: Hex | null = null;
   if (allowance.needsApproval) {
@@ -139,7 +173,7 @@ export async function executeCrossChainPay(
       approveTxHash = await approveUsdcMax(walletClient, chainKey, payer);
     } catch (error) {
       throw new CrossChainPayError(
-        "Approve dibatalkan atau gagal di wallet",
+        "Approval was cancelled or failed in the wallet",
         "approve-wallet",
         error,
       );
@@ -148,7 +182,7 @@ export async function executeCrossChainPay(
     await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
   }
 
-  // Quote LZ native fee — PulseSender masih panggil endpoint.send internally.
+  // Quote the LayerZero native fee. PulseSender calls endpoint.send internally.
   const nativeFee = await quotePayNativeFee(publicClient, {
     chainKey,
     sessionId,
@@ -156,7 +190,7 @@ export async function executeCrossChainPay(
     payer,
   });
 
-  // Submit pay.
+  // Submit payment.
   onPhase?.("pay-wallet");
   let payTxHash: Hex;
   try {
@@ -167,7 +201,7 @@ export async function executeCrossChainPay(
     );
   } catch (error) {
     throw new CrossChainPayError(
-      "Pay dibatalkan atau gagal di wallet",
+      "Payment was cancelled or failed in the wallet",
       "pay-wallet",
       error,
     );
@@ -175,11 +209,9 @@ export async function executeCrossChainPay(
   onPhase?.("pay-confirming");
   await publicClient.waitForTransactionReceipt({ hash: payTxHash });
 
-  // Tx EVM confirmed. Relayer di backend akan listen event PaymentIntentSent
-  // dan settle ke Solana via execute_trusted_split. UI tampilin "settling"
-  // sebentar supaya buyer melihat cross-chain story; durasi ini kira-kira
-  // matching relayer poll interval (5s) — bukan polling status real, future
-  // work bisa cek PaymentSession PDA on-chain langsung.
+  // EVM tx confirmed. The relayer listens for PaymentIntentSent and settles on
+  // Solana. This short settling state is UI-only; a future version can poll the
+  // PaymentSession PDA directly.
   onPhase?.("settling");
   await new Promise((resolve) => setTimeout(resolve, 2500));
 
@@ -194,8 +226,8 @@ export async function executeCrossChainPay(
 }
 
 /**
- * Resolve chain key dari wallet Privy. Jika wallet bukan di Base/Arb Sepolia
- * yang kita support, return null — UI bisa minta user switch atau pilih chain.
+ * Resolves the Privy wallet chain key. Unsupported chains return null so the UI
+ * can ask the user to switch or choose another chain.
  */
 export function detectChainKey(wallet: ConnectedWallet | undefined): EvmChainKey | null {
   if (!wallet?.chainId) return null;

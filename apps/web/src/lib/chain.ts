@@ -1,6 +1,6 @@
 /**
- * Chain key normalisasi untuk Pulse buyer flow — gabung Solana + EVM testnets
- * dalam satu type biar UI bisa branch via switch tunggal.
+ * Normalized chain keys for the Pulse buyer flow. Solana and EVM testnets share
+ * one type so checkout UI can branch from a single switch.
  */
 
 import type { EvmChainKey } from "@pulse/evm";

@@ -29,8 +29,15 @@ import {
 import {
   CrossChainPayError,
   executeCrossChainPay,
+  faucetPmUsdc,
   type CrossChainPayPhase,
 } from "@/lib/cross-chain-pay";
+import {
+  quoteEvmCheckoutFees,
+  solanaCheckoutFeeQuote,
+  type CheckoutFeeQuote,
+} from "@/lib/checkout-fees";
+import { requestSolanaDevnetSol } from "@/lib/solana-devnet-faucet";
 
 export default function CheckoutSessionPage({
   params,
@@ -46,11 +53,14 @@ export default function CheckoutSessionPage({
   const [resultChain, setResultChain] = useState<CheckoutChainKey>("solana");
   const [crossChainPhase, setCrossChainPhase] = useState<CrossChainPayPhase | null>(null);
   const [selectedChain, setSelectedChain] = useState<CheckoutChainKey | null>(null);
+  const [feeQuote, setFeeQuote] = useState<CheckoutFeeQuote | undefined>();
+  const [faucetPending, setFaucetPending] = useState(false);
+  const [faucetMessage, setFaucetMessage] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
-  const { ethereumWallet, availableChains } = useBuyerWalletConnection();
+  const { ethereumWallet, solanaWallet, availableChains } = useBuyerWalletConnection();
 
-  // Default chain mengikuti wallet yang connect — EVM > Solana saat dua-duanya connect.
+  // Default to the connected wallet chain, with EVM first when both are present.
   useEffect(() => {
     if (availableChains.length === 0) return;
     setSelectedChain((current) => {
@@ -93,6 +103,63 @@ export default function CheckoutSessionPage({
   }, [sessionId, loadAttempt]);
 
   const resolvedSession = useMemo(() => session, [session]);
+  const checkoutChain = selectedChain ?? "solana";
+
+  useEffect(() => {
+    setFaucetMessage(null);
+    setFaucetPending(false);
+  }, [checkoutChain, ethereumWallet?.address, solanaWallet?.address]);
+
+  useEffect(() => {
+    if (!resolvedSession) {
+      setFeeQuote(undefined);
+      return;
+    }
+
+    if (!isEvmChain(checkoutChain)) {
+      setFeeQuote(solanaCheckoutFeeQuote());
+      return;
+    }
+
+    if (!ethereumWallet?.address) {
+      setFeeQuote({
+        status: "unavailable",
+        gasFeeLabel: "Connect wallet to estimate",
+        cctpFeeLabel: "Connect wallet to estimate",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setFeeQuote({
+      status: "loading",
+      gasFeeLabel: "Estimating...",
+      cctpFeeLabel: "Estimating...",
+    });
+
+    quoteEvmCheckoutFees({
+      chainKey: checkoutChain,
+      payer: ethereumWallet.address as `0x${string}`,
+      sessionSeed: resolvedSession.session.sessionSeed,
+      amountUsdc: resolvedSession.session.amountUsdc,
+    })
+      .then((quote) => {
+        if (!cancelled) setFeeQuote(quote);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setFeeQuote({
+          status: "unavailable",
+          gasFeeLabel: "Unavailable",
+          cctpFeeLabel: "Unavailable",
+          reason: error instanceof Error ? error.message : "Unable to estimate fees",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedSession, checkoutChain, ethereumWallet?.address]);
 
   const handleSolanaMockPay = async (payerAddress: string) => {
     if (!resolvedSession) return;
@@ -125,7 +192,7 @@ export default function CheckoutSessionPage({
 
   const handleEvmCrossChainPay = async (chain: "baseSepolia" | "arbSepolia") => {
     if (!resolvedSession || !ethereumWallet) {
-      setErrorReason("Ethereum wallet belum connect.");
+      setErrorReason("Ethereum wallet is not connected.");
       setPhase("error");
       return;
     }
@@ -156,8 +223,8 @@ export default function CheckoutSessionPage({
 
       setTxSignature(result.payTxHash);
 
-      // Eager record — backend mark session 'paid'. Relayer settle ke Solana
-      // jalan paralel via PaymentIntentSent event listener.
+      // Eager record. Backend marks the session paid while the relayer settles
+      // to Solana from the PaymentIntentSent event.
       await recordCheckoutTransaction({
         sessionId: resolvedSession.session.id,
         sessionPda: resolvedSession.session.sessionPda,
@@ -199,9 +266,42 @@ export default function CheckoutSessionPage({
     }
   };
 
+  const handleFaucet = async () => {
+    setFaucetPending(true);
+    try {
+      if (isEvmChain(checkoutChain)) {
+        if (!ethereumWallet) {
+          setFaucetMessage("Connect an EVM wallet first.");
+          return;
+        }
+
+        setFaucetMessage("Confirm the faucet transaction in your wallet.");
+        await faucetPmUsdc({
+          wallet: ethereumWallet,
+          chainKey: checkoutChain,
+          amountUsdc: "100",
+        });
+        setFaucetMessage(`100 pmUSDC minted on ${chainLabel(checkoutChain)}.`);
+        return;
+      }
+
+      if (!solanaWallet?.address) {
+        setFaucetMessage("Connect a Solana wallet first.");
+        return;
+      }
+
+      setFaucetMessage("Requesting 1 devnet SOL...");
+      await requestSolanaDevnetSol(solanaWallet.address, 1);
+      setFaucetMessage("1 devnet SOL added to your Solana wallet.");
+    } catch (error) {
+      setFaucetMessage(error instanceof Error ? error.message : "Faucet request failed.");
+    } finally {
+      setFaucetPending(false);
+    }
+  };
+
   const walletScreenText = walletPhaseLabel(crossChainPhase);
   const processingScreenText = processingPhaseLabel(crossChainPhase, resultChain);
-  const checkoutChain = selectedChain ?? "solana";
   const chainsForUi = availableChains.length > 0 ? availableChains : ["solana" as const];
 
   return (
@@ -216,6 +316,10 @@ export default function CheckoutSessionPage({
             selectedChain={checkoutChain}
             availableChains={chainsForUi}
             onChainSelect={setSelectedChain}
+            feeQuote={feeQuote}
+            onFaucet={handleFaucet}
+            faucetPending={faucetPending}
+            faucetMessage={faucetMessage}
           />
         )}
         {phase === "wallet" && (

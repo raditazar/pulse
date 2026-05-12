@@ -71,14 +71,16 @@ export function useBuyerWalletConnection(
   const ethereumWallet = activeEthereumWallet ?? ethereumWallets.at(-1);
   const solanaWallet = activeSolanaWallet ?? solanaWallets.at(-1);
   const hasPaymentWallet = ethereumWallets.length > 0 || solanaWallets.length > 0;
-  // For Pulse's Solana-first checkout, prefer a connected Solana wallet when
-  // the buyer has both Solana and EVM wallets available.
   const activeType =
-    activeWallet?.type === "solana" || solanaWallet
+    activeWallet?.type === "solana"
       ? "solana"
-      : activeWallet?.type === "ethereum" || ethereumWallet
-      ? "ethereum"
-      : null;
+      : activeWallet?.type === "ethereum"
+        ? "ethereum"
+        : solanaWallet
+          ? "solana"
+          : ethereumWallet
+            ? "ethereum"
+            : null;
   const selectedWallet = activeType === "solana" ? solanaWallet : ethereumWallet;
   const walletName =
     selectedWallet && "meta" in selectedWallet

@@ -2,7 +2,10 @@
 
 import { useConnectWallet, useLogin, useLogout, usePrivy } from "@privy-io/react-auth";
 import { useCreateWallet, useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
-import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
+import {
+  disconnectExternalSolanaWallets,
+  getPreferredSolanaWallet,
+} from "@/lib/solana-wallet";
 import { CopyIcon } from "./icons";
 import { CtaButton, ReadonlyInput } from "./primitives";
 import { merchantPrivyAppId } from "./PrivyProvider";
@@ -45,6 +48,7 @@ export function MerchantWalletPanel({ compact = false }: { compact?: boolean }) 
 
 function ConnectedMerchantWalletPanel({ compact }: { compact: boolean }) {
   const { authenticated, ownerLabel, ready, wallet, walletsReady } = useMerchantWalletState();
+  const { wallets } = useSolanaWallets();
   const { login } = useLogin();
   const { logout } = useLogout();
   const { connectWallet } = useConnectWallet();
@@ -57,7 +61,10 @@ function ConnectedMerchantWalletPanel({ compact }: { compact: boolean }) {
     });
   };
 
-  const handleConnectSolana = () => {
+  const handleConnectSolana = async () => {
+    if (wallet) {
+      await disconnectExternalSolanaWallets(wallets);
+    }
     connectWallet({ walletChainType: "solana-only" });
   };
 

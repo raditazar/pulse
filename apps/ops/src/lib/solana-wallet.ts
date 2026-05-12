@@ -1,5 +1,6 @@
 type SolanaWalletLike = {
   address: string;
+  disconnect?: () => Promise<void>;
   standardWallet?: unknown;
 };
 
@@ -9,6 +10,16 @@ export function getPreferredSolanaWallet<T extends SolanaWalletLike>(
   return (
     [...wallets].reverse().find((wallet) => !isPrivySolanaWallet(wallet)) ??
     wallets.at(-1)
+  );
+}
+
+export async function disconnectExternalSolanaWallets<T extends SolanaWalletLike>(
+  wallets: T[],
+) {
+  await Promise.allSettled(
+    wallets
+      .filter((wallet) => !isPrivySolanaWallet(wallet))
+      .map((wallet) => wallet.disconnect?.()),
   );
 }
 

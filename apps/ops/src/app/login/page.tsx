@@ -12,7 +12,10 @@ import { SegmentedToggle } from "@pulse/ui";
 import { merchantPrivyAppId } from "@/components/dashboard/PrivyProvider";
 import { PulseLogoImage } from "@/components/dashboard/PulseLogoImage";
 import { createMerchant, getMerchantMe } from "@/lib/api";
-import { getPreferredSolanaWallet } from "@/lib/solana-wallet";
+import {
+  disconnectExternalSolanaWallets,
+  getPreferredSolanaWallet,
+} from "@/lib/solana-wallet";
 
 function GoogleIcon() {
   return (
@@ -296,10 +299,12 @@ export default function MerchantAuthPage() {
     login({ loginMethods: ["google"], walletChainType: "solana-only" });
   };
 
-  const handleLoginWallet = () => {
+  const handleLoginWallet = async () => {
     authModeRef.current = tab;
     setAuthStatusMessage(null);
     if (authenticated) {
+      setAuthStatusMessage("Choose a different Solana wallet...");
+      await disconnectExternalSolanaWallets(wallets);
       connectWallet({ walletChainType: "solana-only" });
       return;
     }

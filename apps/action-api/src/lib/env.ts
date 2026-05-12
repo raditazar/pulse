@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
-  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: z.string().default("https://pulse-web-lime.vercel.app"),
   USDC_MINT: z.string().min(32),
   PLATFORM_USDC_TOKEN_ACCOUNT: z.string().min(32),
   PULSE_PAYMENT_PROGRAM_ID: z

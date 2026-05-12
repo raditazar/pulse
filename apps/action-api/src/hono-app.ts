@@ -10,15 +10,17 @@ export const app = new Hono();
 
 app.use("/*", cors());
 
+const health = {
+  name: "pulse-action-api",
+  status: "ok",
+  message: "Pulse backend is ready for session and split-payment routes.",
+};
+
+app.get("/", (c) => c.json(health));
+
 const api = app.basePath("/api");
 
-api.get("/", (c) =>
-  c.json({
-    name: "pulse-action-api",
-    status: "ok",
-    message: "Pulse backend is ready for session and split-payment routes.",
-  }),
-);
+api.get("/", (c) => c.json(health));
 
 api.route("/sessions", sessions);
 api.route("/transactions", transactions);

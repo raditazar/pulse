@@ -17,7 +17,7 @@ import {
   type Keypair,
 } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { buildExecuteTrustedSplitIx } from "@pulse/solana";
+import { buildExecuteTrustedSplitIx } from "../../../packages/solana/src/cross-chain/trusted-relayer";
 
 import { ComputeBudgetProgram } from "@solana/web3.js";
 

@@ -2,11 +2,11 @@
   "name": "@pulse/relayer",
   "private": true,
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup src/index.ts --format esm --target node22 --out-dir dist --clean",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "start:railway": "tsx apps/relayer/src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

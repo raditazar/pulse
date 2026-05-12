@@ -3,7 +3,7 @@
  * butuh sign on-chain tx (initialize_merchant + create_session) yang butuh
  * rent + tx fee.
  *
- * Pool keypair di-load dari `FUNDER_KEYPAIR_PATH` env. Operator harus pre-fund
+ * Pool keypair di-load dari env. Operator harus pre-fund
  * keypair ini dengan devnet SOL secara manual (`solana airdrop` atau transfer
  * dari wallet lain). Tidak ada auto-replenish.
  */
@@ -31,14 +31,15 @@ let cachedConnection: Connection | null = null;
 
 function loadFunderKeypair(): Keypair {
   if (cachedFunder) return cachedFunder;
-  const path = process.env.FUNDER_KEYPAIR_PATH;
-  if (!path) {
+  const keypairEnv = process.env.FUNDER_KEYPAIR ?? process.env.FUNDER_KEYPAIR_PATH;
+  if (!keypairEnv) {
     throw new Error(
-      "FUNDER_KEYPAIR_PATH belum diset di apps/action-api/.env. Generate keypair: `solana-keygen new --no-bip39-passphrase --silent --outfile contracts/.keys/pulse-funder.json`, lalu set FUNDER_KEYPAIR_PATH=../../contracts/.keys/pulse-funder.json",
+      "FUNDER_KEYPAIR belum diset. Generate keypair lalu set env ke JSON array secret key, atau set FUNDER_KEYPAIR_PATH untuk local file.",
     );
   }
-  const absPath = resolve(process.cwd(), path);
-  const raw = readFileSync(absPath, "utf-8");
+  const raw = keypairEnv.trim().startsWith("[")
+    ? keypairEnv
+    : readFileSync(resolve(process.cwd(), keypairEnv), "utf-8");
   const bytes = Uint8Array.from(JSON.parse(raw));
   cachedFunder = Keypair.fromSecretKey(bytes);
   return cachedFunder;

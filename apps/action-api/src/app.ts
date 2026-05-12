@@ -1,0 +1,27 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { sessions } from "./routes/sessions";
+import { transactions } from "./routes/transactions";
+import { merchants } from "./routes/merchants";
+import { terminals } from "./routes/terminals";
+import { tap } from "./routes/tap";
+
+export const app = new Hono();
+
+app.use("/*", cors());
+
+const api = app.basePath("/api");
+
+api.get("/", (c) =>
+  c.json({
+    name: "pulse-action-api",
+    status: "ok",
+    message: "Pulse backend is ready for session and split-payment routes.",
+  }),
+);
+
+api.route("/sessions", sessions);
+api.route("/transactions", transactions);
+api.route("/merchants", merchants);
+api.route("/terminals", terminals);
+api.route("/tap", tap);

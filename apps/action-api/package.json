@@ -2,7 +2,7 @@
   "name": "@pulse/action-api",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm --filter @pulse/database build && pnpm --filter @pulse/solana build && pnpm --filter @pulse/types build && tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
